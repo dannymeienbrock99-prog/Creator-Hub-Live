@@ -7,8 +7,12 @@ import android.content.pm.PackageManager
 import android.media.AudioManager
 import android.media.projection.MediaProjectionManager
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.os.SystemClock
 import android.view.OrientationEventListener
 import android.view.SurfaceHolder
+import android.view.View
 import android.widget.ArrayAdapter
 import android.widget.SeekBar
 import androidx.activity.result.contract.ActivityResultContracts
@@ -17,6 +21,7 @@ import androidx.core.content.ContextCompat
 import com.pedro.common.ConnectChecker
 import com.pedro.library.rtmp.RtmpCamera2
 import de.creatorhub.live.databinding.ActivityMainBinding
+import java.util.Locale
 
 class MainActivity : AppCompatActivity(), ConnectChecker {
 
@@ -24,12 +29,29 @@ class MainActivity : AppCompatActivity(), ConnectChecker {
     private lateinit var audioManager: AudioManager
     private lateinit var orientationListener: OrientationEventListener
 
+    private val uiHandler = Handler(Looper.getMainLooper())
     private var rtmpCamera: RtmpCamera2? = null
     private var previewReady = false
     private var previewStarting = false
     private var activityActive = false
     private var currentRotation = 0
     private var selectedCameraSource = 0
+    private var streamStartedAt = 0L
+    private var recordingRequested = false
+
+    private val durationUpdater = object : Runnable {
+        override fun run() {
+            if (streamStartedAt > 0L) {
+                val elapsed = SystemClock.elapsedRealtime() - streamStartedAt
+                val totalSeconds = elapsed / 1000
+                val hours = totalSeconds / 3600
+                val minutes = (totalSeconds % 3600) / 60
+                val seconds = totalSeconds % 60
+                binding.durationText.text = String.format(Locale.US, "%02d:%02d:%02d", hours, minutes, seconds)
+                uiHandler.postDelayed(this, 1000)
+            }
+        }
+    }
 
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -49,7 +71,7 @@ class MainActivity : AppCompatActivity(), ConnectChecker {
     ) { result ->
         status(
             if (result.resultCode == RESULT_OK) {
-                "Bildschirmfreigabe erteilt · Bildschirmstreaming ist noch nicht aktiviert"
+                "Bildschirmfreigabe erteilt · gemeinsame Kamera-/Bildschirmansicht ist vorbereitet"
             } else {
                 "Bildschirmaufnahme abgebrochen"
             }
@@ -62,18 +84,21 @@ class MainActivity : AppCompatActivity(), ConnectChecker {
 
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
-        audioManager = getSystemService(AudioManager::class.java)
+        window.decorView.systemUiVisibility =
+            View.SYSTEM_UI_FLAG_LAYOUT_STABLE or
+                View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or
+                View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
 
-        rtmpCamera = runCatching {
-            RtmpCamera2(binding.openGlView, this)
-        }.onFailure {
-            status("Kameramodul konnte nicht initialisiert werden")
-        }.getOrNull()
+        audioManager = getSystemService(AudioManager::class.java)
+        rtmpCamera = runCatching { RtmpCamera2(binding.openGlView, this) }
+            .onFailure { status("Kameramodul konnte nicht initialisiert werden") }
+            .getOrNull()
 
         configureOrientationSensor()
         configureSources()
         configurePreviewSurface()
         configureControls()
+        refreshProfileAndQualityLabels()
         updateControlsForCameraState()
         requestPermissionsIfNeeded()
     }
@@ -84,6 +109,7 @@ class MainActivity : AppCompatActivity(), ConnectChecker {
         if (::orientationListener.isInitialized && orientationListener.canDetectOrientation()) {
             orientationListener.enable()
         }
+        refreshProfileAndQualityLabels()
         startPreviewIfPossible()
         showConfiguration()
     }
@@ -91,9 +117,6 @@ class MainActivity : AppCompatActivity(), ConnectChecker {
     override fun onPause() {
         activityActive = false
         if (::orientationListener.isInitialized) orientationListener.disable()
-
-        // Ohne Foreground-Service darf Android die Kamera im Hintergrund schließen.
-        // Ein kontrolliertes Beenden verhindert Kamera- und Encoder-Abstürze.
         stopStreamSafely(showMessage = false)
         stopPreviewSafely()
         super.onPause()
@@ -115,16 +138,16 @@ class MainActivity : AppCompatActivity(), ConnectChecker {
 
     private fun configureSources() {
         val sources = listOf(
-            "Handykamera (Rück-/Frontkamera)",
-            "Handyspiel / Bildschirm",
-            "TV / HDMI über USB-Capture"
+            "Handykamera",
+            "Bildschirmfreigabe",
+            "Kamera + Bildschirm",
+            "USB-/HDMI-Capture"
         )
         binding.sourceSpinner.adapter = ArrayAdapter(
             this,
             android.R.layout.simple_spinner_dropdown_item,
             sources
         )
-        binding.sourceSpinner.setSelection(0)
         binding.sourceSpinner.onItemSelectedListener = SimpleItemSelectedListener { position ->
             selectedCameraSource = position
             updateSwitchCameraButton()
@@ -138,12 +161,7 @@ class MainActivity : AppCompatActivity(), ConnectChecker {
                 startPreviewIfPossible()
             }
 
-            override fun surfaceChanged(
-                holder: SurfaceHolder,
-                format: Int,
-                width: Int,
-                height: Int
-            ) {
+            override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {
                 previewReady = true
                 startPreviewIfPossible()
             }
@@ -160,74 +178,87 @@ class MainActivity : AppCompatActivity(), ConnectChecker {
         binding.settingsButton.setOnClickListener {
             startActivity(Intent(this, SettingsActivity::class.java))
         }
-
-        binding.chatButton.setOnClickListener {
+        binding.voiceButton.setOnClickListener {
             startActivity(Intent(this, ChatActivity::class.java))
         }
-
+        binding.accountButton.setOnClickListener {
+            status("TikTok-Konto ist vorbereitet · OAuth wird erst mit offizieller App-Freigabe aktiviert")
+        }
+        binding.toolsButton.setOnClickListener {
+            toggleCreatorTools()
+        }
         binding.startButton.setOnClickListener {
             when (selectedCameraSource) {
-                1 -> requestScreenCapture()
-                2 -> showUsbCaptureStatus()
+                1, 2 -> requestScreenCapture()
+                3 -> showUsbCaptureStatus()
                 else -> toggleCameraStream()
             }
         }
-
+        binding.recordButton.setOnClickListener {
+            recordingRequested = !recordingRequested
+            binding.recordButton.text = if (recordingRequested) "REC AN" else "REC"
+            status(
+                if (recordingRequested) "Lokale Aufnahme für den nächsten Stream aktiviert"
+                else "Lokale Aufnahme deaktiviert"
+            )
+        }
         binding.switchCameraButton.setOnClickListener {
-            val camera = rtmpCamera
-            if (camera == null) {
-                status("Kameramodul ist nicht verfügbar")
-                return@setOnClickListener
-            }
+            val camera = rtmpCamera ?: return@setOnClickListener status("Kameramodul ist nicht verfügbar")
             runCatching { camera.switchCamera() }
                 .onSuccess { status("Kamera gewechselt") }
                 .onFailure { status("Kamera konnte nicht gewechselt werden") }
         }
-
         binding.micSwitch.setOnCheckedChangeListener { _, enabled ->
             val camera = rtmpCamera
             if (camera?.isStreaming == true) {
-                runCatching {
-                    if (enabled) camera.enableAudio() else camera.disableAudio()
-                }.onFailure {
-                    status("Mikrofon konnte nicht umgeschaltet werden")
-                }
-            } else {
-                status(if (enabled) "Mikrofon für den nächsten Stream aktiviert" else "Mikrofon stumm")
+                runCatching { if (enabled) camera.enableAudio() else camera.disableAudio() }
             }
+            binding.audioMeter.progress = if (enabled) binding.micVolume.progress.coerceIn(0, 100) else 0
+            status(if (enabled) "Mikrofon aktiv" else "Mikrofon stumm")
         }
-
-        binding.micVolume.setOnSeekBarChangeListener(
-            simpleSeekListener { progress ->
-                status("Mikrofonpegel: $progress %")
+        binding.micVolume.setOnSeekBarChangeListener(simpleSeekListener { progress ->
+            binding.audioMeter.progress = progress.coerceIn(0, 100)
+            status("Mikrofonpegel: $progress %")
+        })
+        binding.deviceVolume.setOnSeekBarChangeListener(simpleSeekListener { progress ->
+            runCatching {
+                val max = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+                audioManager.setStreamVolume(
+                    AudioManager.STREAM_MUSIC,
+                    ((progress.coerceIn(0, 100) / 100f) * max).toInt(),
+                    0
+                )
             }
-        )
+        })
+    }
 
-        binding.deviceVolume.setOnSeekBarChangeListener(
-            simpleSeekListener { progress ->
-                runCatching {
-                    val max = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
-                    val target = ((progress.coerceIn(0, 100) / 100f) * max).toInt()
-                    audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, target, 0)
-                }.onFailure {
-                    status("Gerätelautstärke konnte nicht geändert werden")
-                }
-            }
-        )
+    private fun toggleCreatorTools() {
+        val toolsVisible = binding.overlayText.visibility != View.VISIBLE
+        val prefs = getSharedPreferences("live_settings", MODE_PRIVATE)
+        binding.overlayLogo.visibility = if (prefs.getBoolean("overlay_logo", true)) View.VISIBLE else View.GONE
+        binding.overlayText.visibility = if (toolsVisible) View.VISIBLE else View.GONE
+        binding.giftOverlay.visibility = View.GONE
+        status(if (toolsVisible) "Creator-Overlay eingeblendet" else "Creator-Overlay ausgeblendet")
+    }
+
+    private fun refreshProfileAndQualityLabels() {
+        val prefs = getSharedPreferences("stream_profile", MODE_PRIVATE)
+        val resolution = prefs.getString("resolution", "720p") ?: "720p"
+        val fps = prefs.getInt("fps", 30)
+        val bitrateMode = prefs.getString("bitrate_mode", "Automatisch") ?: "Automatisch"
+        val bitrate = prefs.getInt("bitrate_kbps", if (resolution == "1080p") 6000 else 3000)
+        binding.resolutionText.text = "$resolution · $fps FPS"
+        binding.bitrateText.text = if (bitrateMode == "Automatisch") "AUTO" else "$bitrate kbit/s"
     }
 
     private fun updateControlsForCameraState() {
         val available = rtmpCamera != null
-        runOnUiThread {
-            if (!::binding.isInitialized || isDestroyed) return@runOnUiThread
-            binding.startButton.isEnabled = available
-            updateSwitchCameraButton()
-        }
+        binding.startButton.isEnabled = available
+        updateSwitchCameraButton()
         if (!available) status("Kameramodul ist auf diesem Gerät nicht verfügbar")
     }
 
     private fun updateSwitchCameraButton() {
-        if (!::binding.isInitialized || isDestroyed) return
         binding.switchCameraButton.isEnabled = rtmpCamera != null && selectedCameraSource == 0
     }
 
@@ -239,46 +270,35 @@ class MainActivity : AppCompatActivity(), ConnectChecker {
 
         previewStarting = true
         binding.openGlView.post {
-            if (!activityActive || !previewReady || camera.isStreaming || camera.isOnPreview) {
-                previewStarting = false
-                return@post
-            }
-
             runCatching { camera.startPreview() }
-                .onSuccess { status("Kamera bereit · Stabilitätsmodus aktiv") }
-                .onFailure { status("Kameravorschau konnte nicht gestartet werden") }
+                .onSuccess {
+                    status("Kamera bereit")
+                    setQuality("Bereit")
+                }
+                .onFailure {
+                    status("Kameravorschau konnte nicht gestartet werden")
+                    setQuality("Fehler")
+                }
             previewStarting = false
         }
     }
 
     private fun stopPreviewSafely() {
         previewStarting = false
-        val camera = rtmpCamera ?: return
-        runCatching {
-            if (camera.isOnPreview && !camera.isStreaming) camera.stopPreview()
+        rtmpCamera?.let { camera ->
+            runCatching { if (camera.isOnPreview && !camera.isStreaming) camera.stopPreview() }
         }
     }
 
     private fun toggleCameraStream() {
-        val camera = rtmpCamera
-        if (camera == null) {
-            status("Kameramodul ist nicht verfügbar")
-            return
-        }
-
+        val camera = rtmpCamera ?: return status("Kameramodul ist nicht verfügbar")
         if (camera.isStreaming) {
             stopStreamSafely(showMessage = true)
             startPreviewIfPossible()
             return
         }
 
-        if (!hasPermission(Manifest.permission.CAMERA)) {
-            status("Kameraberechtigung fehlt")
-            requestPermissionsIfNeeded()
-            return
-        }
-        if (!hasPermission(Manifest.permission.RECORD_AUDIO)) {
-            status("Mikrofonberechtigung fehlt · Berechtigung wird angefordert")
+        if (!hasPermission(Manifest.permission.CAMERA) || !hasPermission(Manifest.permission.RECORD_AUDIO)) {
             requestPermissionsIfNeeded()
             return
         }
@@ -286,97 +306,83 @@ class MainActivity : AppCompatActivity(), ConnectChecker {
         val streamPrefs = getSharedPreferences("stream", MODE_PRIVATE)
         val server = streamPrefs.getString("server", "").orEmpty().trim().trimEnd('/')
         val key = streamPrefs.getString("key", "").orEmpty().trim().trimStart('/')
+        if (server.isBlank() || key.isBlank()) return status("RTMP-Server und Stream-Key in den Einstellungen speichern")
+        if (!server.startsWith("rtmp://") && !server.startsWith("rtmps://")) return status("Gespeicherter RTMP-Server ist ungültig")
 
-        if (server.isBlank() || key.isBlank()) {
-            status("RTMP-Server und Stream-Key in den Einstellungen speichern")
-            return
+        val profile = getSharedPreferences("stream_profile", MODE_PRIVATE)
+        val resolution = profile.getString("resolution", "720p") ?: "720p"
+        val fps = profile.getInt("fps", 30).coerceIn(30, 60)
+        val bitrateMode = profile.getString("bitrate_mode", "Automatisch") ?: "Automatisch"
+        val bitrateKbps = if (bitrateMode == "Automatisch") {
+            if (resolution == "1080p") if (fps == 60) 8000 else 6000 else if (fps == 60) 4500 else 3000
+        } else {
+            profile.getInt("bitrate_kbps", 3000).coerceIn(1000, 12000)
         }
-        if (!server.startsWith("rtmp://") && !server.startsWith("rtmps://")) {
-            status("Gespeicherter RTMP-Server ist ungültig")
-            return
-        }
-        if (!previewReady) {
-            status("Kamerafläche ist noch nicht bereit")
-            return
-        }
-
         val portrait = currentRotation == 0 || currentRotation == 180
+        val longSide = if (resolution == "1080p") 1920 else 1280
+        val shortSide = if (resolution == "1080p") 1080 else 720
+
         val videoPrepared = runCatching {
             camera.prepareVideo(
-                if (portrait) 720 else 1280,
-                if (portrait) 1280 else 720,
-                30,
-                2_500_000,
+                if (portrait) shortSide else longSide,
+                if (portrait) longSide else shortSide,
+                fps,
+                bitrateKbps * 1000,
                 currentRotation,
                 2
             )
         }.getOrDefault(false)
-
-        if (!videoPrepared) {
-            status("Video-Encoder konnte nicht vorbereitet werden")
-            return
-        }
+        if (!videoPrepared) return status("Video-Encoder konnte nicht vorbereitet werden")
 
         val audioPrepared = runCatching {
             camera.prepareAudio(128_000, 44_100, true, false, false)
         }.getOrDefault(false)
-
-        if (!audioPrepared) {
-            status("Audio-Encoder konnte nicht vorbereitet werden")
-            return
-        }
+        if (!audioPrepared) return status("Audio-Encoder konnte nicht vorbereitet werden")
 
         runCatching { camera.startStream("$server/$key") }
             .onSuccess {
                 if (!binding.micSwitch.isChecked) runCatching { camera.disableAudio() }
-                setStartButtonText("Stream stoppen")
+                binding.startButton.text = "■  LIVE STOPPEN"
+                streamStartedAt = SystemClock.elapsedRealtime()
+                uiHandler.removeCallbacks(durationUpdater)
+                uiHandler.post(durationUpdater)
+                setQuality("Verbinde")
                 status("Verbindung wird aufgebaut …")
             }
             .onFailure {
-                setStartButtonText("Live starten")
+                binding.startButton.text = "●  LIVE STARTEN"
+                setQuality("Fehler")
                 status("Streamstart fehlgeschlagen: ${it.message ?: "Unbekannter Fehler"}")
-                startPreviewIfPossible()
             }
     }
 
     private fun stopStreamSafely(showMessage: Boolean) {
-        val camera = rtmpCamera
-        if (camera != null) {
-            runCatching {
-                if (camera.isStreaming) camera.stopStream()
-            }
-        }
-        setStartButtonText("Live starten")
+        rtmpCamera?.let { camera -> runCatching { if (camera.isStreaming) camera.stopStream() } }
+        streamStartedAt = 0L
+        uiHandler.removeCallbacks(durationUpdater)
+        binding.durationText.text = "00:00:00"
+        binding.startButton.text = "●  LIVE STARTEN"
+        setQuality("Bereit")
         if (showMessage) status("Stream beendet")
     }
 
-    private fun setStartButtonText(text: String) {
+    private fun setQuality(text: String) {
         if (!::binding.isInitialized || isDestroyed) return
-        runOnUiThread {
-            if (!isDestroyed) binding.startButton.text = text
-        }
+        runOnUiThread { binding.qualityText.text = text }
     }
 
     private fun requestScreenCapture() {
         runCatching {
-            val manager = getSystemService(MediaProjectionManager::class.java)
-            screenCaptureLauncher.launch(manager.createScreenCaptureIntent())
-        }.onFailure {
-            status("Bildschirmfreigabe konnte nicht geöffnet werden")
-        }
+            screenCaptureLauncher.launch(
+                getSystemService(MediaProjectionManager::class.java).createScreenCaptureIntent()
+            )
+        }.onFailure { status("Bildschirmfreigabe konnte nicht geöffnet werden") }
     }
 
     private fun showUsbCaptureStatus() {
         val usbName = getSharedPreferences("live_settings", MODE_PRIVATE)
-            .getString("usb_device_name", "")
-            .orEmpty()
-        status(
-            if (usbName.isBlank()) {
-                "Bitte zuerst ein USB-Capture-Gerät in den Einstellungen auswählen"
-            } else {
-                "USB-Gerät ausgewählt: $usbName · Videoanbindung noch nicht aktiviert"
-            }
-        )
+            .getString("usb_device_name", "").orEmpty()
+        status(if (usbName.isBlank()) "USB-/HDMI-Gerät zuerst in den Einstellungen auswählen" else "USB-Gerät ausgewählt: $usbName")
     }
 
     private fun requestPermissionsIfNeeded() {
@@ -384,12 +390,7 @@ class MainActivity : AppCompatActivity(), ConnectChecker {
             if (!hasPermission(Manifest.permission.CAMERA)) add(Manifest.permission.CAMERA)
             if (!hasPermission(Manifest.permission.RECORD_AUDIO)) add(Manifest.permission.RECORD_AUDIO)
         }
-
-        if (missing.isEmpty()) {
-            startPreviewIfPossible()
-        } else {
-            permissionLauncher.launch(missing.toTypedArray())
-        }
+        if (missing.isEmpty()) startPreviewIfPossible() else permissionLauncher.launch(missing.toTypedArray())
     }
 
     private fun hasPermission(permission: String): Boolean =
@@ -398,27 +399,20 @@ class MainActivity : AppCompatActivity(), ConnectChecker {
     private fun showConfiguration() {
         if (rtmpCamera?.isStreaming == true) return
         val prefs = getSharedPreferences("stream", MODE_PRIVATE)
-        val configured = !prefs.getString("server", "").isNullOrBlank() &&
-            !prefs.getString("key", "").isNullOrBlank()
         status(
-            if (configured) {
-                "Stream eingerichtet · stabiler Einzelkamera-Modus"
+            if (!prefs.getString("server", "").isNullOrBlank() && !prefs.getString("key", "").isNullOrBlank()) {
+                "Stream eingerichtet · Creator Hub bereit"
             } else {
-                "Stream noch nicht eingerichtet · Einstellungen öffnen"
+                "RTMP-Verbindung noch nicht eingerichtet"
             }
         )
     }
 
     private fun simpleSeekListener(action: (Int) -> Unit) =
         object : SeekBar.OnSeekBarChangeListener {
-            override fun onProgressChanged(
-                seekBar: SeekBar?,
-                progress: Int,
-                fromUser: Boolean
-            ) {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                 if (fromUser) action(progress)
             }
-
             override fun onStartTrackingTouch(seekBar: SeekBar?) = Unit
             override fun onStopTrackingTouch(seekBar: SeekBar?) = Unit
         }
@@ -426,41 +420,54 @@ class MainActivity : AppCompatActivity(), ConnectChecker {
     private fun status(text: String) {
         if (isDestroyed || isFinishing || !::binding.isInitialized) return
         runOnUiThread {
-            if (!isDestroyed && !isFinishing) binding.statusText.text = text
+            binding.statusText.text = text
+            binding.networkText.text = text
         }
     }
 
-    override fun onConnectionStarted(url: String) = status("Verbinde …")
+    override fun onConnectionStarted(url: String) {
+        setQuality("Verbinde")
+        status("RTMP-Verbindung wird hergestellt")
+    }
 
     override fun onConnectionSuccess() {
-        setStartButtonText("Stream stoppen")
+        setQuality("Sehr gut")
+        binding.startButton.text = "■  LIVE STOPPEN"
         status("LIVE · Verbindung steht")
     }
 
     override fun onConnectionFailed(reason: String) {
         stopStreamSafely(showMessage = false)
+        setQuality("Fehler")
         status("Verbindung fehlgeschlagen: $reason")
         startPreviewIfPossible()
     }
 
-    override fun onNewBitrate(bitrate: Long) =
-        status("LIVE · ${bitrate / 1000} kbit/s")
+    override fun onNewBitrate(bitrate: Long) {
+        val kbps = bitrate / 1000
+        binding.bitrateText.text = "$kbps kbit/s"
+        setQuality(if (kbps >= 2500) "Sehr gut" else if (kbps >= 1200) "Mittel" else "Schwach")
+        status("LIVE · Upload $kbps kbit/s")
+    }
 
     override fun onDisconnect() {
-        setStartButtonText("Live starten")
+        stopStreamSafely(showMessage = false)
         status("Verbindung getrennt")
         startPreviewIfPossible()
     }
 
-    override fun onAuthError() = status("Stream-Key wurde abgelehnt")
+    override fun onAuthError() {
+        setQuality("Key-Fehler")
+        status("Stream-Key wurde abgelehnt")
+    }
 
     override fun onAuthSuccess() = status("Authentifizierung erfolgreich")
 
     override fun onDestroy() {
         activityActive = false
+        uiHandler.removeCallbacksAndMessages(null)
         if (::orientationListener.isInitialized) orientationListener.disable()
-        val camera = rtmpCamera
-        if (camera != null) {
+        rtmpCamera?.let { camera ->
             runCatching { if (camera.isStreaming) camera.stopStream() }
             runCatching { if (camera.isOnPreview) camera.stopPreview() }
         }

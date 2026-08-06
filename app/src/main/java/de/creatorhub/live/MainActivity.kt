@@ -4,12 +4,20 @@ import android.Manifest
 import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.content.pm.PackageManager
+import android.graphics.SurfaceTexture
+import android.hardware.camera2.CameraCaptureSession
+import android.hardware.camera2.CameraCharacteristics
+import android.hardware.camera2.CameraDevice
+import android.hardware.camera2.CameraManager
+import android.hardware.camera2.CaptureRequest
 import android.media.AudioManager
 import android.media.projection.MediaProjectionManager
 import android.os.Bundle
+import android.view.MotionEvent
 import android.view.OrientationEventListener
 import android.view.Surface
 import android.view.SurfaceHolder
+import android.view.TextureView
 import android.widget.ArrayAdapter
 import android.widget.SeekBar
 import android.widget.Toast
@@ -26,11 +34,21 @@ class MainActivity : AppCompatActivity(), ConnectChecker {
     private lateinit var rtmpCamera: RtmpCamera2
     private lateinit var audioManager: AudioManager
     private lateinit var orientationListener: OrientationEventListener
+    private lateinit var cameraManager: CameraManager
     private var previewReady = false
     private var currentRotation = 0
+    private var frontCamera: CameraDevice? = null
+    private var frontSession: CameraCaptureSession? = null
+    private var dragDownX = 0f
+    private var dragDownY = 0f
+    private var dragStartX = 0f
+    private var dragStartY = 0f
 
     private val permissionLauncher = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
-        if (result.values.all { it }) startCameraPreview() else status("Kamera- und Mikrofonrechte fehlen")
+        if (result.values.all { it }) {
+            startCameraPreview()
+            startFrontCameraPreview()
+        } else status("Kamera- und Mikrofonrechte fehlen")
     }
 
     private val screenCaptureLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -46,10 +64,12 @@ class MainActivity : AppCompatActivity(), ConnectChecker {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
         audioManager = getSystemService(AudioManager::class.java)
+        cameraManager = getSystemService(CameraManager::class.java)
         rtmpCamera = RtmpCamera2(binding.openGlView, this)
         configureOrientationSensor()
         configureSources()
         configurePreview()
+        configureFrontCameraOverlay()
         configureControls()
         requestPermissionsIfNeeded()
     }
@@ -58,10 +78,12 @@ class MainActivity : AppCompatActivity(), ConnectChecker {
         super.onResume()
         if (::orientationListener.isInitialized && orientationListener.canDetectOrientation()) orientationListener.enable()
         showActiveLiveConfiguration()
+        if (hasCameraPermission()) startFrontCameraPreview()
     }
 
     override fun onPause() {
         if (::orientationListener.isInitialized) orientationListener.disable()
+        stopFrontCameraPreview()
         super.onPause()
     }
 
@@ -90,22 +112,17 @@ class MainActivity : AppCompatActivity(), ConnectChecker {
             270 -> "Querformat rechts"
             else -> "Hochformat"
         }
-        val surfaceRotation = when (rotation) {
-            90 -> Surface.ROTATION_90
-            180 -> Surface.ROTATION_180
-            270 -> Surface.ROTATION_270
-            else -> Surface.ROTATION_0
-        }
         binding.openGlView.rotation = rotation.toFloat()
         binding.openGlView.requestLayout()
-        status("Kameraausrichtung: $mode · Sensor aktiv · Rotation $surfaceRotation")
+        binding.frontCameraPreview.rotation = rotation.toFloat()
+        status("Kameraausrichtung: $mode · Sensor aktiv")
     }
 
     private fun configureSources() {
         binding.sourceSpinner.adapter = ArrayAdapter(
             this,
             android.R.layout.simple_spinner_dropdown_item,
-            listOf("Rückkamera", "Frontkamera", "Handyspiel / Bildschirm", "TV / HDMI über USB-Capture")
+            listOf("Rückkamera + Frontkamera-Kreis", "Frontkamera", "Handyspiel / Bildschirm", "TV / HDMI über USB-Capture")
         )
     }
 
@@ -123,6 +140,101 @@ class MainActivity : AppCompatActivity(), ConnectChecker {
         })
     }
 
+    private fun configureFrontCameraOverlay() {
+        binding.frontCameraPreview.surfaceTextureListener = object : TextureView.SurfaceTextureListener {
+            override fun onSurfaceTextureAvailable(surface: SurfaceTexture, width: Int, height: Int) {
+                startFrontCameraPreview()
+            }
+            override fun onSurfaceTextureSizeChanged(surface: SurfaceTexture, width: Int, height: Int) = Unit
+            override fun onSurfaceTextureDestroyed(surface: SurfaceTexture): Boolean {
+                stopFrontCameraPreview()
+                return true
+            }
+            override fun onSurfaceTextureUpdated(surface: SurfaceTexture) = Unit
+        }
+
+        binding.frontCameraPreview.setOnTouchListener { view, event ->
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    dragDownX = event.rawX
+                    dragDownY = event.rawY
+                    dragStartX = view.x
+                    dragStartY = view.y
+                    true
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    val maxX = (binding.cameraStage.width - view.width).coerceAtLeast(0).toFloat()
+                    val maxY = (binding.cameraStage.height - view.height).coerceAtLeast(0).toFloat()
+                    view.x = (dragStartX + event.rawX - dragDownX).coerceIn(0f, maxX)
+                    view.y = (dragStartY + event.rawY - dragDownY).coerceIn(0f, maxY)
+                    true
+                }
+                else -> true
+            }
+        }
+    }
+
+    private fun startFrontCameraPreview() {
+        if (!hasCameraPermission() || !binding.frontCameraPreview.isAvailable || frontCamera != null) return
+        val frontId = runCatching {
+            cameraManager.cameraIdList.firstOrNull { id ->
+                cameraManager.getCameraCharacteristics(id)
+                    .get(CameraCharacteristics.LENS_FACING) == CameraCharacteristics.LENS_FACING_FRONT
+            }
+        }.getOrNull()
+        if (frontId.isNullOrBlank()) {
+            binding.frontCameraPreview.visibility = android.view.View.GONE
+            return
+        }
+        runCatching {
+            cameraManager.openCamera(frontId, object : CameraDevice.StateCallback() {
+                override fun onOpened(camera: CameraDevice) {
+                    frontCamera = camera
+                    createFrontSession(camera)
+                }
+                override fun onDisconnected(camera: CameraDevice) {
+                    camera.close()
+                    frontCamera = null
+                }
+                override fun onError(camera: CameraDevice, error: Int) {
+                    camera.close()
+                    frontCamera = null
+                    runOnUiThread { status("Frontkamera-Kreis nicht verfügbar") }
+                }
+            }, mainHandler)
+        }.onFailure {
+            binding.frontCameraPreview.visibility = android.view.View.GONE
+            status("Gleichzeitige Frontkamera wird von diesem Handy nicht unterstützt")
+        }
+    }
+
+    private fun createFrontSession(camera: CameraDevice) {
+        val texture = binding.frontCameraPreview.surfaceTexture ?: return
+        texture.setDefaultBufferSize(640, 640)
+        val surface = Surface(texture)
+        val request = camera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW).apply {
+            addTarget(surface)
+            set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE)
+        }
+        camera.createCaptureSession(listOf(surface), object : CameraCaptureSession.StateCallback() {
+            override fun onConfigured(session: CameraCaptureSession) {
+                if (frontCamera == null) return
+                frontSession = session
+                session.setRepeatingRequest(request.build(), null, mainHandler)
+            }
+            override fun onConfigureFailed(session: CameraCaptureSession) {
+                runOnUiThread { status("Frontkamera-Kreis konnte nicht gestartet werden") }
+            }
+        }, mainHandler)
+    }
+
+    private fun stopFrontCameraPreview() {
+        runCatching { frontSession?.close() }
+        runCatching { frontCamera?.close() }
+        frontSession = null
+        frontCamera = null
+    }
+
     private fun configureControls() {
         binding.settingsButton.setOnClickListener { startActivity(Intent(this, SettingsActivity::class.java)) }
         binding.chatButton.setOnClickListener { startActivity(Intent(this, ChatActivity::class.java)) }
@@ -130,8 +242,7 @@ class MainActivity : AppCompatActivity(), ConnectChecker {
             when (binding.sourceSpinner.selectedItemPosition) {
                 2 -> requestScreenCapture()
                 3 -> {
-                    val usbName = getSharedPreferences("live_settings", MODE_PRIVATE)
-                        .getString("usb_device_name", "")
+                    val usbName = getSharedPreferences("live_settings", MODE_PRIVATE).getString("usb_device_name", "")
                     status(if (usbName.isNullOrBlank()) "Bitte zuerst ein USB-Capture-Gerät auswählen" else "USB-Capture gewählt: $usbName")
                 }
                 else -> toggleCameraStream()
@@ -147,11 +258,7 @@ class MainActivity : AppCompatActivity(), ConnectChecker {
         binding.micVolume.setOnSeekBarChangeListener(simpleSeekListener { status("Mikrofonpegel: $it %") })
         binding.deviceVolume.setOnSeekBarChangeListener(simpleSeekListener { progress ->
             val max = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
-            audioManager.setStreamVolume(
-                AudioManager.STREAM_MUSIC,
-                ((progress.coerceIn(0, 100) / 100f) * max).toInt(),
-                0
-            )
+            audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, ((progress.coerceIn(0, 100) / 100f) * max).toInt(), 0)
             status("Geräteton: $progress %")
         })
     }
@@ -161,19 +268,9 @@ class MainActivity : AppCompatActivity(), ConnectChecker {
         val prefs = getSharedPreferences("live_settings", MODE_PRIVATE)
         val guestCount = prefs.getInt("guest_count", 1)
         val usbName = prefs.getString("usb_device_name", "").orEmpty()
-        val overlayParts = buildList {
-            if (prefs.getBoolean("overlay_chat", true)) add("Chat")
-            if (prefs.getBoolean("overlay_gifts", true)) add("Geschenke")
-            if (prefs.getBoolean("overlay_goal", false)) add("Ziel")
-            if (prefs.getBoolean("overlay_viewers", true)) add("Zuschauer")
-            if (prefs.getBoolean("overlay_guests", true)) add("Gäste")
-            if (prefs.getBoolean("overlay_logo", true)) add("Logo")
-        }
         val streamPrefs = getSharedPreferences("stream", MODE_PRIVATE)
-        val configured = !streamPrefs.getString("server", "").isNullOrBlank() &&
-            !streamPrefs.getString("key", "").isNullOrBlank()
-        val connection = if (configured) "Stream eingerichtet" else "Stream nicht eingerichtet"
-        status("$connection · Overlay: ${overlayParts.joinToString()} · Gäste: $guestCount · USB: ${if (usbName.isBlank()) "kein USB-Gerät" else usbName}")
+        val configured = !streamPrefs.getString("server", "").isNullOrBlank() && !streamPrefs.getString("key", "").isNullOrBlank()
+        status("${if (configured) "Stream eingerichtet" else "Stream nicht eingerichtet"} · Rückkamera groß · Frontkamera-Kreis verschiebbar · Gäste: $guestCount · USB: ${if (usbName.isBlank()) "kein USB-Gerät" else usbName}")
     }
 
     private fun toggleCameraStream() {
@@ -183,7 +280,6 @@ class MainActivity : AppCompatActivity(), ConnectChecker {
             status("Stream beendet")
             return
         }
-
         val streamPrefs = getSharedPreferences("stream", MODE_PRIVATE)
         val server = streamPrefs.getString("server", "").orEmpty().trim().trimEnd('/')
         val key = streamPrefs.getString("key", "").orEmpty().trim().trimStart('/')
@@ -195,7 +291,6 @@ class MainActivity : AppCompatActivity(), ConnectChecker {
             status("Gespeicherter Server ist ungültig")
             return
         }
-
         val portrait = currentRotation == 0 || currentRotation == 180
         val width = if (portrait) 720 else 1280
         val height = if (portrait) 1280 else 720
@@ -211,17 +306,16 @@ class MainActivity : AppCompatActivity(), ConnectChecker {
     }
 
     private fun requestScreenCapture() {
-        screenCaptureLauncher.launch(
-            getSystemService(MediaProjectionManager::class.java).createScreenCaptureIntent()
-        )
+        screenCaptureLauncher.launch(getSystemService(MediaProjectionManager::class.java).createScreenCaptureIntent())
     }
+
+    private fun hasCameraPermission() = ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
 
     private fun requestPermissionsIfNeeded() {
         val permissions = arrayOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO)
-        if (permissions.all {
-                ContextCompat.checkSelfPermission(this, it) == PackageManager.PERMISSION_GRANTED
-            }) {
+        if (permissions.all { ContextCompat.checkSelfPermission(this, it) == PackageManager.PERMISSION_GRANTED }) {
             startCameraPreview()
+            startFrontCameraPreview()
         } else permissionLauncher.launch(permissions)
     }
 
@@ -231,19 +325,13 @@ class MainActivity : AppCompatActivity(), ConnectChecker {
             .onFailure { status("Kameravorschau konnte nicht gestartet werden") }
     }
 
-    private fun simpleSeekListener(onChanged: (Int) -> Unit) =
-        object : SeekBar.OnSeekBarChangeListener {
-            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                if (fromUser) onChanged(progress)
-            }
-            override fun onStartTrackingTouch(seekBar: SeekBar?) = Unit
-            override fun onStopTrackingTouch(seekBar: SeekBar?) = Unit
-        }
-
-    private fun status(text: String) {
-        runOnUiThread { binding.statusText.text = text }
+    private fun simpleSeekListener(onChanged: (Int) -> Unit) = object : SeekBar.OnSeekBarChangeListener {
+        override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) { if (fromUser) onChanged(progress) }
+        override fun onStartTrackingTouch(seekBar: SeekBar?) = Unit
+        override fun onStopTrackingTouch(seekBar: SeekBar?) = Unit
     }
 
+    private fun status(text: String) { runOnUiThread { binding.statusText.text = text } }
     override fun onConnectionStarted(url: String) = status("Verbinde mit TikTok …")
     override fun onConnectionSuccess() = status("LIVE – Verbindung steht")
     override fun onConnectionFailed(reason: String) {
@@ -258,6 +346,7 @@ class MainActivity : AppCompatActivity(), ConnectChecker {
 
     override fun onDestroy() {
         if (::orientationListener.isInitialized) orientationListener.disable()
+        stopFrontCameraPreview()
         if (rtmpCamera.isStreaming) rtmpCamera.stopStream()
         if (rtmpCamera.isOnPreview) rtmpCamera.stopPreview()
         super.onDestroy()

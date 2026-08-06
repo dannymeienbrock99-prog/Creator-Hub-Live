@@ -26,6 +26,13 @@
             android:text="Nicht verbunden"
             android:textColor="#94A3B8" />
 
+        <Button
+            android:id="@+id/settingsButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:text="USB, Overlay und Gäste einstellen" />
+
         <com.pedro.library.view.OpenGlView
             android:id="@+id/openGlView"
             android:layout_width="match_parent"

@@ -2,6 +2,7 @@ package de.creatorhub.live
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.media.AudioManager
 import android.media.projection.MediaProjectionManager
 import android.os.Bundle
 import android.view.SurfaceHolder
@@ -19,6 +20,7 @@ class MainActivity : AppCompatActivity(), ConnectChecker {
 
     private lateinit var binding: ActivityMainBinding
     private lateinit var rtmpCamera: RtmpCamera2
+    private lateinit var audioManager: AudioManager
     private var previewReady = false
 
     private val permissionLauncher = registerForActivityResult(
@@ -42,6 +44,7 @@ class MainActivity : AppCompatActivity(), ConnectChecker {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        audioManager = getSystemService(AudioManager::class.java)
         rtmpCamera = RtmpCamera2(binding.openGlView, this)
         loadSavedConnection()
         configureSources()
@@ -97,12 +100,13 @@ class MainActivity : AppCompatActivity(), ConnectChecker {
         }
 
         binding.micVolume.setOnSeekBarChangeListener(simpleSeekListener { progress ->
-            val gain = (progress.coerceAtLeast(1) / 100f)
-            runCatching { rtmpCamera.setMicrophoneMode(com.pedro.encoder.input.audio.MicrophoneMode.SYNC) }
-            status("Mikrofonpegel: ${(gain * 100).toInt()} %")
+            status("Mikrofonpegel: $progress %")
         })
 
         binding.deviceVolume.setOnSeekBarChangeListener(simpleSeekListener { progress ->
+            val max = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+            val volume = ((progress.coerceIn(0, 100) / 100f) * max).toInt()
+            audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, volume, 0)
             status("Geräteton: $progress %")
         })
     }

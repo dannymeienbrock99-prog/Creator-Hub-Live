@@ -15,10 +15,9 @@
         android:allowBackup="false"
         android:label="Creator Hub Live"
         android:theme="@style/Theme.CreatorHubLive"
-        android:usesCleartextTraffic="false">
-        <activity
-            android:name=".SettingsActivity"
-            android:exported="false" />
+        android:usesCleartextTraffic="true">
+        <activity android:name=".ChatActivity" android:exported="false" />
+        <activity android:name=".SettingsActivity" android:exported="false" />
         <activity
             android:name=".MainActivity"
             android:configChanges="keyboardHidden|orientation|screenSize"

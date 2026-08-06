@@ -3,9 +3,12 @@ package de.creatorhub.live
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.content.pm.ActivityInfo
 import android.media.AudioManager
 import android.media.projection.MediaProjectionManager
 import android.os.Bundle
+import android.view.OrientationEventListener
+import android.view.Surface
 import android.view.SurfaceHolder
 import android.widget.ArrayAdapter
 import android.widget.SeekBar
@@ -22,7 +25,9 @@ class MainActivity : AppCompatActivity(), ConnectChecker {
     private lateinit var binding: ActivityMainBinding
     private lateinit var rtmpCamera: RtmpCamera2
     private lateinit var audioManager: AudioManager
+    private lateinit var orientationListener: OrientationEventListener
     private var previewReady = false
+    private var currentRotation = 0
 
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -42,11 +47,13 @@ class MainActivity : AppCompatActivity(), ConnectChecker {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
         audioManager = getSystemService(AudioManager::class.java)
         rtmpCamera = RtmpCamera2(binding.openGlView, this)
+        configureOrientationSensor()
         loadSavedConnection()
         configureSources()
         configurePreview()
@@ -56,7 +63,51 @@ class MainActivity : AppCompatActivity(), ConnectChecker {
 
     override fun onResume() {
         super.onResume()
+        if (::orientationListener.isInitialized && orientationListener.canDetectOrientation()) {
+            orientationListener.enable()
+        }
         showActiveLiveConfiguration()
+    }
+
+    override fun onPause() {
+        if (::orientationListener.isInitialized) orientationListener.disable()
+        super.onPause()
+    }
+
+    private fun configureOrientationSensor() {
+        orientationListener = object : OrientationEventListener(this) {
+            override fun onOrientationChanged(orientation: Int) {
+                if (orientation == ORIENTATION_UNKNOWN) return
+                val rotation = when (orientation) {
+                    in 45..134 -> 270
+                    in 135..224 -> 180
+                    in 225..314 -> 90
+                    else -> 0
+                }
+                if (rotation != currentRotation) {
+                    currentRotation = rotation
+                    updateCameraRotation(rotation)
+                }
+            }
+        }
+    }
+
+    private fun updateCameraRotation(rotation: Int) {
+        val mode = when (rotation) {
+            90 -> "Querformat links"
+            180 -> "Hochformat gedreht"
+            270 -> "Querformat rechts"
+            else -> "Hochformat"
+        }
+        val surfaceRotation = when (rotation) {
+            90 -> Surface.ROTATION_90
+            180 -> Surface.ROTATION_180
+            270 -> Surface.ROTATION_270
+            else -> Surface.ROTATION_0
+        }
+        binding.openGlView.rotation = rotation.toFloat()
+        binding.openGlView.requestLayout()
+        status("Kameraausrichtung: $mode · Sensor aktiv · Rotation $surfaceRotation")
     }
 
     private fun configureSources() {
@@ -162,7 +213,10 @@ class MainActivity : AppCompatActivity(), ConnectChecker {
         }
 
         saveConnection(server, key)
-        if (!rtmpCamera.prepareVideo(1280, 720, 30, 3_500_000, 0, 2) ||
+        val portrait = currentRotation == 0 || currentRotation == 180
+        val width = if (portrait) 720 else 1280
+        val height = if (portrait) 1280 else 720
+        if (!rtmpCamera.prepareVideo(width, height, 30, 3_500_000, currentRotation, 2) ||
             !rtmpCamera.prepareAudio(128_000, 44_100, true, false, false)
         ) {
             status("Encoder konnte nicht vorbereitet werden")
@@ -230,6 +284,7 @@ class MainActivity : AppCompatActivity(), ConnectChecker {
     override fun onAuthSuccess() = status("TikTok-Authentifizierung erfolgreich")
 
     override fun onDestroy() {
+        if (::orientationListener.isInitialized) orientationListener.disable()
         if (rtmpCamera.isStreaming) rtmpCamera.stopStream()
         if (rtmpCamera.isOnPreview) rtmpCamera.stopPreview()
         super.onDestroy()

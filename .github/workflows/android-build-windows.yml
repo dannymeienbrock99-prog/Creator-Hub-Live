@@ -46,7 +46,7 @@ jobs:
       - name: Upload stable APK
         uses: actions/upload-artifact@v4
         with:
-          name: CreatorHub-Live-v1.3.5-Stable-Windows
+          name: CreatorHub-Live-v1.4.0-Stable-Windows
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 90

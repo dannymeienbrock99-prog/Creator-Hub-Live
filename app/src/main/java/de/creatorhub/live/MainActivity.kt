@@ -1,6 +1,7 @@
 package de.creatorhub.live
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.media.AudioManager
 import android.media.projection.MediaProjectionManager
@@ -53,6 +54,11 @@ class MainActivity : AppCompatActivity(), ConnectChecker {
         requestPermissionsIfNeeded()
     }
 
+    override fun onResume() {
+        super.onResume()
+        showActiveLiveConfiguration()
+    }
+
     private fun configureSources() {
         val sources = listOf(
             "Rückkamera",
@@ -82,10 +88,18 @@ class MainActivity : AppCompatActivity(), ConnectChecker {
     }
 
     private fun configureControls() {
+        binding.settingsButton.setOnClickListener {
+            startActivity(Intent(this, SettingsActivity::class.java))
+        }
+
         binding.startButton.setOnClickListener {
             when (binding.sourceSpinner.selectedItemPosition) {
                 2 -> requestScreenCapture()
-                3 -> status("USB-Capture gewählt. Gerät anschließen und UVC-Unterstützung ergänzen.")
+                3 -> {
+                    val usbName = getSharedPreferences("live_settings", MODE_PRIVATE)
+                        .getString("usb_device_name", "")
+                    status(if (usbName.isNullOrBlank()) "Bitte zuerst ein USB-Capture-Gerät auswählen" else "USB-Capture gewählt: $usbName")
+                }
                 else -> toggleCameraStream()
             }
         }
@@ -109,6 +123,23 @@ class MainActivity : AppCompatActivity(), ConnectChecker {
             audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, volume, 0)
             status("Geräteton: $progress %")
         })
+    }
+
+    private fun showActiveLiveConfiguration() {
+        if (::rtmpCamera.isInitialized && rtmpCamera.isStreaming) return
+        val prefs = getSharedPreferences("live_settings", MODE_PRIVATE)
+        val guestCount = prefs.getInt("guest_count", 1)
+        val usbName = prefs.getString("usb_device_name", "").orEmpty()
+        val overlayParts = buildList {
+            if (prefs.getBoolean("overlay_chat", true)) add("Chat")
+            if (prefs.getBoolean("overlay_gifts", true)) add("Geschenke")
+            if (prefs.getBoolean("overlay_goal", false)) add("Ziel")
+            if (prefs.getBoolean("overlay_viewers", true)) add("Zuschauer")
+            if (prefs.getBoolean("overlay_guests", true)) add("Gäste")
+            if (prefs.getBoolean("overlay_logo", true)) add("Logo")
+        }
+        val usbText = if (usbName.isBlank()) "kein USB-Gerät" else usbName
+        status("Overlay: ${overlayParts.joinToString()} · Gäste: $guestCount · USB: $usbText")
     }
 
     private fun toggleCameraStream() {

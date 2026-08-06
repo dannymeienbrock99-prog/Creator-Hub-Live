@@ -1,0 +1,60 @@
+html, body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: transparent;
+  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.chat {
+  position: fixed;
+  inset: auto 20px 20px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.message {
+  max-width: min(680px, 92vw);
+  padding: 10px 14px;
+  border-radius: 14px;
+  color: #fff;
+  background: rgba(7, 12, 24, var(--chat-opacity, .76));
+  border: 1px solid rgba(255, 255, 255, .12);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, .22);
+  backdrop-filter: blur(10px);
+  animation: enter .28s ease-out both;
+  font-size: var(--chat-font-size, 18px);
+  line-height: 1.35;
+}
+
+.message.leaving { animation: leave .26s ease-in both; }
+
+.name { font-weight: 800; margin-right: 6px; }
+.badge {
+  display: inline-block;
+  margin-right: 6px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: .72em;
+  font-weight: 800;
+  vertical-align: 1px;
+}
+.badge.mod { background: rgba(122, 92, 255, .9); }
+.badge.sub { background: rgba(255, 59, 138, .9); }
+.badge.gift { background: rgba(255, 175, 45, .94); color: #211300; }
+
+.text { overflow-wrap: anywhere; }
+.gift-line { color: #ffd27a; font-weight: 800; }
+
+@keyframes enter {
+  from { opacity: 0; transform: translateY(16px) scale(.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes leave {
+  from { opacity: 1; transform: translateY(0); }
+  to { opacity: 0; transform: translateY(-8px); }
+}

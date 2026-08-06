@@ -9,7 +9,7 @@ on:
   pull_request:
     branches: ["main"]
   workflow_run:
-    workflows: ["Android APK Build"]
+    workflows: ["Android APK Build", "Android APK Build Windows"]
     types: [completed]
   schedule:
     - cron: "*/5 * * * *"
@@ -19,7 +19,20 @@ permissions:
 
 jobs:
   build-windows:
-    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+    if: >-
+      ${{
+        github.event_name != 'workflow_run' ||
+        (
+          github.event.workflow_run.conclusion == 'success' &&
+          (
+            github.event.workflow_run.name == 'Android APK Build' ||
+            (
+              github.event.workflow_run.name == 'Android APK Build Windows' &&
+              github.event.workflow_run.run_number == 8
+            )
+          )
+        )
+      }}
     runs-on: windows-2022
     timeout-minutes: 30
 

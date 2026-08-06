@@ -2,128 +2,53 @@
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#0B1020">
+    android:background="#070B16">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="16dp">
+        android:padding="20dp">
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Live-Einstellungen"
-            android:textColor="#FFFFFF"
-            android:textSize="26sp"
-            android:textStyle="bold" />
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Creator Hub Setup" android:textColor="#FFFFFF" android:textSize="28sp" android:textStyle="bold" />
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:text="Streaming, Qualität, Overlays und Geräte" android:textColor="#94A3B8" />
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="18dp"
-            android:text="Stream-Verbindung"
-            android:textColor="#FFFFFF"
-            android:textSize="20sp"
-            android:textStyle="bold" />
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="22dp" android:text="Sichere RTMP-Verbindung" android:textColor="#FFFFFF" android:textSize="20sp" android:textStyle="bold" />
+        <EditText android:id="@+id/serverInput" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:hint="RTMP-/RTMPS-Server" android:inputType="textUri" android:textColor="#FFFFFF" android:textColorHint="#64748B" />
+        <EditText android:id="@+id/streamKeyInput" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="Persönlicher Stream-Key" android:inputType="textPassword" android:textColor="#FFFFFF" android:textColorHint="#64748B" />
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Der Stream-Key wird verdeckt eingegeben und niemals im Kamerabild oder App-Code angezeigt." android:textColor="#94A3B8" />
 
-        <EditText
-            android:id="@+id/serverInput"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:hint="RTMP-/RTMPS-Server"
-            android:inputType="textUri"
-            android:textColor="#FFFFFF"
-            android:textColorHint="#64748B" />
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="22dp" android:text="Stream-Qualität" android:textColor="#FFFFFF" android:textSize="20sp" android:textStyle="bold" />
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Auflösung" android:textColor="#CBD5E1" />
+        <Spinner android:id="@+id/resolutionSpinner" android:layout_width="match_parent" android:layout_height="wrap_content" />
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Bildrate" android:textColor="#CBD5E1" />
+        <Spinner android:id="@+id/fpsSpinner" android:layout_width="match_parent" android:layout_height="wrap_content" />
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Bitrate" android:textColor="#CBD5E1" />
+        <Spinner android:id="@+id/bitrateModeSpinner" android:layout_width="match_parent" android:layout_height="wrap_content" />
+        <EditText android:id="@+id/bitrateInput" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="Manuelle Bitrate in kbit/s" android:inputType="number" android:textColor="#FFFFFF" android:textColorHint="#64748B" />
+        <CheckBox android:id="@+id/recordStream" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Stream zusätzlich auf dem Handy aufnehmen" android:textColor="#FFFFFF" />
 
-        <EditText
-            android:id="@+id/streamKeyInput"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:hint="Stream-Key"
-            android:inputType="textPassword"
-            android:textColor="#FFFFFF"
-            android:textColorHint="#64748B" />
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="22dp" android:text="USB- und externe Geräte" android:textColor="#FFFFFF" android:textSize="20sp" android:textStyle="bold" />
+        <Spinner android:id="@+id/usbDeviceSpinner" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" />
+        <Button android:id="@+id/refreshUsbButton" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="USB-Geräte neu erkennen" />
+        <TextView android:id="@+id/usbDeviceInfo" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Kein USB-Gerät ausgewählt" android:textColor="#94A3B8" />
 
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Server und Schlüssel werden nur lokal auf diesem Gerät gespeichert."
-            android:textColor="#94A3B8" />
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="18dp"
-            android:text="USB-Geräte"
-            android:textColor="#FFFFFF"
-            android:textSize="20sp"
-            android:textStyle="bold" />
-
-        <Spinner
-            android:id="@+id/usbDeviceSpinner"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp" />
-
-        <Button
-            android:id="@+id/refreshUsbButton"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="USB-Geräte neu erkennen" />
-
-        <TextView
-            android:id="@+id/usbDeviceInfo"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Kein USB-Gerät ausgewählt"
-            android:textColor="#94A3B8" />
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="18dp"
-            android:text="Stream-Overlay"
-            android:textColor="#FFFFFF"
-            android:textSize="20sp"
-            android:textStyle="bold" />
-
-        <CheckBox android:id="@+id/showChat" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Chat anzeigen" android:textColor="#FFFFFF" />
-        <CheckBox android:id="@+id/showGifts" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Geschenke und Animationen anzeigen" android:textColor="#FFFFFF" />
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="22dp" android:text="Creator-Overlays" android:textColor="#FFFFFF" android:textSize="20sp" android:textStyle="bold" />
+        <CheckBox android:id="@+id/showChat" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Nachrichten-Overlay vorbereiten" android:textColor="#FFFFFF" />
+        <CheckBox android:id="@+id/showGifts" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Geschenk-Animationen vorbereiten" android:textColor="#FFFFFF" />
         <CheckBox android:id="@+id/showGoal" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Live-Ziel anzeigen" android:textColor="#FFFFFF" />
-        <CheckBox android:id="@+id/showViewerCount" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Zuschauerzahl anzeigen" android:textColor="#FFFFFF" />
-        <CheckBox android:id="@+id/showGuestFrames" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Gast-Fenster anzeigen" android:textColor="#FFFFFF" />
+        <CheckBox android:id="@+id/showViewerCount" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Zuschauerfeld vorbereiten" android:textColor="#FFFFFF" />
+        <CheckBox android:id="@+id/showGuestFrames" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Gast-Fenster vorbereiten" android:textColor="#FFFFFF" />
         <CheckBox android:id="@+id/showLogo" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Creator-Hub-Logo anzeigen" android:textColor="#FFFFFF" />
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="18dp"
-            android:text="Gast-Live"
-            android:textColor="#FFFFFF"
-            android:textSize="20sp"
-            android:textStyle="bold" />
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="22dp" android:text="Szenen und Gäste" android:textColor="#FFFFFF" android:textSize="20sp" android:textStyle="bold" />
+        <Spinner android:id="@+id/guestCountSpinner" android:layout_width="match_parent" android:layout_height="wrap_content" />
+        <CheckBox android:id="@+id/autoGuestLayout" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Layout automatisch anpassen" android:textColor="#FFFFFF" />
+        <CheckBox android:id="@+id/prioritizeHost" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Host hervorheben" android:textColor="#FFFFFF" />
 
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Maximale Anzahl gleichzeitig sichtbarer Gäste"
-            android:textColor="#94A3B8" />
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="22dp" android:text="TikTok-Zugang" android:textColor="#FFFFFF" android:textSize="20sp" android:textStyle="bold" />
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Login, Video-Upload und Veröffentlichung werden erst aktiviert, sobald die offizielle TikTok-App-Freigabe und die erforderlichen Berechtigungen vorliegen. LIVE-Kommentare, Geschenke, Zuschauer, Co-Hosts und Moderation bleiben bis dahin deaktiviert." android:textColor="#94A3B8" />
 
-        <Spinner
-            android:id="@+id/guestCountSpinner"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content" />
-
-        <CheckBox android:id="@+id/autoGuestLayout" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Gast-Layout automatisch anpassen" android:textColor="#FFFFFF" />
-        <CheckBox android:id="@+id/prioritizeHost" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Host immer größer anzeigen" android:textColor="#FFFFFF" />
-
-        <Button
-            android:id="@+id/saveSettingsButton"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="20dp"
-            android:text="Einstellungen speichern" />
+        <Button android:id="@+id/saveSettingsButton" android:layout_width="match_parent" android:layout_height="56dp" android:layout_marginTop="24dp" android:text="Einstellungen speichern" android:textStyle="bold" />
     </LinearLayout>
 </ScrollView>

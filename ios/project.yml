@@ -1,0 +1,25 @@
+name: CreatorHubLive
+options:
+  bundleIdPrefix: de.creatorhub.live
+  deploymentTarget:
+    iOS: "16.0"
+settings:
+  base:
+    SWIFT_VERSION: 5.10
+targets:
+  CreatorHubLive:
+    type: application
+    platform: iOS
+    sources:
+      - path: CreatorHubLive
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: de.creatorhub.live.ios
+        INFOPLIST_KEY_CFBundleDisplayName: Creator Hub Live
+        INFOPLIST_KEY_NSCameraUsageDescription: Creator Hub Live benötigt die Kamera für Livestreams.
+        INFOPLIST_KEY_NSMicrophoneUsageDescription: Creator Hub Live benötigt das Mikrofon für Livestreams.
+        INFOPLIST_KEY_NSLocalNetworkUsageDescription: Creator Hub Live verbindet sich lokal mit TikFinity.
+        GENERATE_INFOPLIST_FILE: YES
+        TARGETED_DEVICE_FAMILY: "1,2"
+    scheme:
+      testTargets: []

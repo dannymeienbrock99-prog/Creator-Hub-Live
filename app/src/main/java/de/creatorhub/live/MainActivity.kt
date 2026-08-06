@@ -13,6 +13,8 @@ import android.hardware.camera2.CaptureRequest
 import android.media.AudioManager
 import android.media.projection.MediaProjectionManager
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.view.MotionEvent
 import android.view.OrientationEventListener
 import android.view.Surface
@@ -35,6 +37,7 @@ class MainActivity : AppCompatActivity(), ConnectChecker {
     private lateinit var audioManager: AudioManager
     private lateinit var orientationListener: OrientationEventListener
     private lateinit var cameraManager: CameraManager
+    private val mainHandler = Handler(Looper.getMainLooper())
     private var previewReady = false
     private var currentRotation = 0
     private var frontCamera: CameraDevice? = null

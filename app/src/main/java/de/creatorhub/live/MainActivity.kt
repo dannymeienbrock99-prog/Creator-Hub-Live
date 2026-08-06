@@ -2,8 +2,8 @@ package de.creatorhub.live
 
 import android.Manifest
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.content.pm.ActivityInfo
+import android.content.pm.PackageManager
 import android.media.AudioManager
 import android.media.projection.MediaProjectionManager
 import android.os.Bundle
@@ -29,16 +29,11 @@ class MainActivity : AppCompatActivity(), ConnectChecker {
     private var previewReady = false
     private var currentRotation = 0
 
-    private val permissionLauncher = registerForActivityResult(
-        ActivityResultContracts.RequestMultiplePermissions()
-    ) { result ->
-        if (result.values.all { it }) startCameraPreview()
-        else status("Kamera- und Mikrofonrechte fehlen")
+    private val permissionLauncher = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
+        if (result.values.all { it }) startCameraPreview() else status("Kamera- und Mikrofonrechte fehlen")
     }
 
-    private val screenCaptureLauncher = registerForActivityResult(
-        ActivityResultContracts.StartActivityForResult()
-    ) { result ->
+    private val screenCaptureLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode == RESULT_OK) {
             Toast.makeText(this, "Bildschirmfreigabe erteilt", Toast.LENGTH_SHORT).show()
             status("Bildschirmaufnahme vorbereitet – Encoder-Service folgt")
@@ -50,7 +45,6 @@ class MainActivity : AppCompatActivity(), ConnectChecker {
         requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
-
         audioManager = getSystemService(AudioManager::class.java)
         rtmpCamera = RtmpCamera2(binding.openGlView, this)
         configureOrientationSensor()
@@ -63,9 +57,7 @@ class MainActivity : AppCompatActivity(), ConnectChecker {
 
     override fun onResume() {
         super.onResume()
-        if (::orientationListener.isInitialized && orientationListener.canDetectOrientation()) {
-            orientationListener.enable()
-        }
+        if (::orientationListener.isInitialized && orientationListener.canDetectOrientation()) orientationListener.enable()
         showActiveLiveConfiguration()
     }
 
@@ -93,85 +85,45 @@ class MainActivity : AppCompatActivity(), ConnectChecker {
     }
 
     private fun updateCameraRotation(rotation: Int) {
-        val mode = when (rotation) {
-            90 -> "Querformat links"
-            180 -> "Hochformat gedreht"
-            270 -> "Querformat rechts"
-            else -> "Hochformat"
-        }
-        val surfaceRotation = when (rotation) {
-            90 -> Surface.ROTATION_90
-            180 -> Surface.ROTATION_180
-            270 -> Surface.ROTATION_270
-            else -> Surface.ROTATION_0
-        }
+        val mode = when (rotation) { 90 -> "Querformat links"; 180 -> "Hochformat gedreht"; 270 -> "Querformat rechts"; else -> "Hochformat" }
+        val surfaceRotation = when (rotation) { 90 -> Surface.ROTATION_90; 180 -> Surface.ROTATION_180; 270 -> Surface.ROTATION_270; else -> Surface.ROTATION_0 }
         binding.openGlView.rotation = rotation.toFloat()
         binding.openGlView.requestLayout()
         status("Kameraausrichtung: $mode · Sensor aktiv · Rotation $surfaceRotation")
     }
 
     private fun configureSources() {
-        val sources = listOf(
-            "Rückkamera",
-            "Frontkamera",
-            "Handyspiel / Bildschirm",
-            "TV / HDMI über USB-Capture"
-        )
-        binding.sourceSpinner.adapter = ArrayAdapter(
-            this,
-            android.R.layout.simple_spinner_dropdown_item,
-            sources
-        )
+        binding.sourceSpinner.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item,
+            listOf("Rückkamera", "Frontkamera", "Handyspiel / Bildschirm", "TV / HDMI über USB-Capture"))
     }
 
     private fun configurePreview() {
         binding.openGlView.holder.addCallback(object : SurfaceHolder.Callback {
             override fun surfaceCreated(holder: SurfaceHolder) = Unit
-            override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {
-                previewReady = true
-                startCameraPreview()
-            }
-            override fun surfaceDestroyed(holder: SurfaceHolder) {
-                previewReady = false
-                if (rtmpCamera.isOnPreview) rtmpCamera.stopPreview()
-            }
+            override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) { previewReady = true; startCameraPreview() }
+            override fun surfaceDestroyed(holder: SurfaceHolder) { previewReady = false; if (rtmpCamera.isOnPreview) rtmpCamera.stopPreview() }
         })
     }
 
     private fun configureControls() {
-        binding.settingsButton.setOnClickListener {
-            startActivity(Intent(this, SettingsActivity::class.java))
-        }
-
+        binding.settingsButton.setOnClickListener { startActivity(Intent(this, SettingsActivity::class.java)) }
+        binding.chatButton.setOnClickListener { startActivity(Intent(this, ChatActivity::class.java)) }
         binding.startButton.setOnClickListener {
             when (binding.sourceSpinner.selectedItemPosition) {
                 2 -> requestScreenCapture()
                 3 -> {
-                    val usbName = getSharedPreferences("live_settings", MODE_PRIVATE)
-                        .getString("usb_device_name", "")
+                    val usbName = getSharedPreferences("live_settings", MODE_PRIVATE).getString("usb_device_name", "")
                     status(if (usbName.isNullOrBlank()) "Bitte zuerst ein USB-Capture-Gerät auswählen" else "USB-Capture gewählt: $usbName")
                 }
                 else -> toggleCameraStream()
             }
         }
-
-        binding.switchCameraButton.setOnClickListener {
-            runCatching { rtmpCamera.switchCamera() }
-                .onFailure { status("Kamera konnte nicht gewechselt werden") }
-        }
-
-        binding.micSwitch.setOnCheckedChangeListener { _, enabled ->
-            if (enabled) rtmpCamera.enableAudio() else rtmpCamera.disableAudio()
-        }
-
-        binding.micVolume.setOnSeekBarChangeListener(simpleSeekListener { progress ->
-            status("Mikrofonpegel: $progress %")
-        })
-
+        binding.switchCameraButton.setOnClickListener { runCatching { rtmpCamera.switchCamera() }.onFailure { status("Kamera konnte nicht gewechselt werden") } }
+        binding.micSwitch.setOnCheckedChangeListener { _, enabled -> if (enabled) rtmpCamera.enableAudio() else rtmpCamera.disableAudio() }
+        binding.micVolume.setOnSeekBarChangeListener(simpleSeekListener { status("Mikrofonpegel: $it %") })
         binding.deviceVolume.setOnSeekBarChangeListener(simpleSeekListener { progress ->
             val max = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
-            val volume = ((progress.coerceIn(0, 100) / 100f) * max).toInt()
-            audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, volume, 0)
+            audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, ((progress.coerceIn(0, 100) / 100f) * max).toInt(), 0)
             status("Geräteton: $progress %")
         })
     }
@@ -189,104 +141,47 @@ class MainActivity : AppCompatActivity(), ConnectChecker {
             if (prefs.getBoolean("overlay_guests", true)) add("Gäste")
             if (prefs.getBoolean("overlay_logo", true)) add("Logo")
         }
-        val usbText = if (usbName.isBlank()) "kein USB-Gerät" else usbName
-        status("Overlay: ${overlayParts.joinToString()} · Gäste: $guestCount · USB: $usbText")
+        status("Overlay: ${overlayParts.joinToString()} · Gäste: $guestCount · USB: ${if (usbName.isBlank()) "kein USB-Gerät" else usbName}")
     }
 
     private fun toggleCameraStream() {
-        if (rtmpCamera.isStreaming) {
-            rtmpCamera.stopStream()
-            binding.startButton.text = "Live starten"
-            status("Stream beendet")
-            return
-        }
-
+        if (rtmpCamera.isStreaming) { rtmpCamera.stopStream(); binding.startButton.text = "Live starten"; status("Stream beendet"); return }
         val server = binding.serverInput.text.toString().trim().trimEnd('/')
         val key = binding.streamKeyInput.text.toString().trim().trimStart('/')
-        if (server.isBlank() || key.isBlank()) {
-            status("TikTok-Server und Stream-Key eingeben")
-            return
-        }
-        if (!server.startsWith("rtmp://") && !server.startsWith("rtmps://")) {
-            status("Server muss mit rtmp:// oder rtmps:// beginnen")
-            return
-        }
-
+        if (server.isBlank() || key.isBlank()) { status("TikTok-Server und Stream-Key eingeben"); return }
+        if (!server.startsWith("rtmp://") && !server.startsWith("rtmps://")) { status("Server muss mit rtmp:// oder rtmps:// beginnen"); return }
         saveConnection(server, key)
         val portrait = currentRotation == 0 || currentRotation == 180
         val width = if (portrait) 720 else 1280
         val height = if (portrait) 1280 else 720
-        if (!rtmpCamera.prepareVideo(width, height, 30, 3_500_000, currentRotation, 2) ||
-            !rtmpCamera.prepareAudio(128_000, 44_100, true, false, false)
-        ) {
-            status("Encoder konnte nicht vorbereitet werden")
-            return
+        if (!rtmpCamera.prepareVideo(width, height, 30, 3_500_000, currentRotation, 2) || !rtmpCamera.prepareAudio(128_000, 44_100, true, false, false)) {
+            status("Encoder konnte nicht vorbereitet werden"); return
         }
-
         rtmpCamera.startStream("$server/$key")
         binding.startButton.text = "Stream stoppen"
         status("Verbindung wird aufgebaut …")
     }
 
-    private fun requestScreenCapture() {
-        val manager = getSystemService(MediaProjectionManager::class.java)
-        screenCaptureLauncher.launch(manager.createScreenCaptureIntent())
-    }
-
+    private fun requestScreenCapture() { screenCaptureLauncher.launch(getSystemService(MediaProjectionManager::class.java).createScreenCaptureIntent()) }
     private fun requestPermissionsIfNeeded() {
         val permissions = arrayOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO)
-        if (permissions.all { ContextCompat.checkSelfPermission(this, it) == PackageManager.PERMISSION_GRANTED }) {
-            startCameraPreview()
-        } else permissionLauncher.launch(permissions)
+        if (permissions.all { ContextCompat.checkSelfPermission(this, it) == PackageManager.PERMISSION_GRANTED }) startCameraPreview() else permissionLauncher.launch(permissions)
     }
-
-    private fun startCameraPreview() {
-        if (!previewReady || rtmpCamera.isOnPreview) return
-        runCatching { rtmpCamera.startPreview() }
-            .onFailure { status("Kameravorschau konnte nicht gestartet werden") }
-    }
-
-    private fun saveConnection(server: String, key: String) {
-        getSharedPreferences("stream", MODE_PRIVATE).edit()
-            .putString("server", server)
-            .putString("key", key)
-            .apply()
-    }
-
-    private fun loadSavedConnection() {
-        val prefs = getSharedPreferences("stream", MODE_PRIVATE)
-        binding.serverInput.setText(prefs.getString("server", ""))
-        binding.streamKeyInput.setText(prefs.getString("key", ""))
-    }
-
+    private fun startCameraPreview() { if (!previewReady || rtmpCamera.isOnPreview) return; runCatching { rtmpCamera.startPreview() }.onFailure { status("Kameravorschau konnte nicht gestartet werden") } }
+    private fun saveConnection(server: String, key: String) { getSharedPreferences("stream", MODE_PRIVATE).edit().putString("server", server).putString("key", key).apply() }
+    private fun loadSavedConnection() { val prefs = getSharedPreferences("stream", MODE_PRIVATE); binding.serverInput.setText(prefs.getString("server", "")); binding.streamKeyInput.setText(prefs.getString("key", "")) }
     private fun simpleSeekListener(onChanged: (Int) -> Unit) = object : SeekBar.OnSeekBarChangeListener {
-        override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-            if (fromUser) onChanged(progress)
-        }
+        override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) { if (fromUser) onChanged(progress) }
         override fun onStartTrackingTouch(seekBar: SeekBar?) = Unit
         override fun onStopTrackingTouch(seekBar: SeekBar?) = Unit
     }
-
-    private fun status(text: String) {
-        runOnUiThread { binding.statusText.text = text }
-    }
-
+    private fun status(text: String) { runOnUiThread { binding.statusText.text = text } }
     override fun onConnectionStarted(url: String) = status("Verbinde mit TikTok …")
     override fun onConnectionSuccess() = status("LIVE – Verbindung steht")
-    override fun onConnectionFailed(reason: String) {
-        status("Verbindung fehlgeschlagen: $reason")
-        if (rtmpCamera.isStreaming) rtmpCamera.stopStream()
-        runOnUiThread { binding.startButton.text = "Live starten" }
-    }
+    override fun onConnectionFailed(reason: String) { status("Verbindung fehlgeschlagen: $reason"); if (rtmpCamera.isStreaming) rtmpCamera.stopStream(); runOnUiThread { binding.startButton.text = "Live starten" } }
     override fun onNewBitrate(bitrate: Long) = status("LIVE – ${bitrate / 1000} kbit/s")
     override fun onDisconnect() = status("Verbindung getrennt")
     override fun onAuthError() = status("TikTok hat den Stream-Key abgelehnt")
     override fun onAuthSuccess() = status("TikTok-Authentifizierung erfolgreich")
-
-    override fun onDestroy() {
-        if (::orientationListener.isInitialized) orientationListener.disable()
-        if (rtmpCamera.isStreaming) rtmpCamera.stopStream()
-        if (rtmpCamera.isOnPreview) rtmpCamera.stopPreview()
-        super.onDestroy()
-    }
+    override fun onDestroy() { if (::orientationListener.isInitialized) orientationListener.disable(); if (rtmpCamera.isStreaming) rtmpCamera.stopStream(); if (rtmpCamera.isOnPreview) rtmpCamera.stopPreview(); super.onDestroy() }
 }

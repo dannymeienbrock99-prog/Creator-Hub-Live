@@ -22,8 +22,8 @@ jobs:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       REPOSITORY: ${{ github.repository }}
       TARGET_SHA: ${{ github.sha }}
-      APK_NAME: CreatorHub-Live-v1.3.5-Stable.apk
-      SHA_NAME: CreatorHub-Live-v1.3.5-Stable.sha256
+      APK_NAME: CreatorHub-Live-v1.4.1-Stable.apk
+      SHA_NAME: CreatorHub-Live-v1.4.1-Stable.sha256
 
     steps:
       - name: Clone Android project

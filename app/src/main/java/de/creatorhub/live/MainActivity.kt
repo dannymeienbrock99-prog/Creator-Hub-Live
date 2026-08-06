@@ -24,7 +24,6 @@ import android.view.TextureView
 import android.view.View
 import android.widget.ArrayAdapter
 import android.widget.SeekBar
-import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
@@ -46,6 +45,7 @@ class MainActivity : AppCompatActivity(), ConnectChecker {
     private var activityActive = false
     private var concurrentSupported = false
     private var frontOpening = false
+    private var suppressFrontSwitchCallback = false
     private var frontCamera: CameraDevice? = null
     private var frontSession: CameraCaptureSession? = null
     private var dragDownX = 0f
@@ -56,14 +56,20 @@ class MainActivity : AppCompatActivity(), ConnectChecker {
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { result ->
-        if (result.values.all { it }) startMainPreview()
-        else status("Kamera- und Mikrofonrechte fehlen")
+        if (result[Manifest.permission.CAMERA] == true) {
+            startMainPreview()
+        } else {
+            status("Kameraberechtigung fehlt")
+        }
     }
 
     private val screenCaptureLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
-        status(if (result.resultCode == RESULT_OK) "Bildschirmfreigabe erteilt" else "Bildschirmaufnahme abgebrochen")
+        status(
+            if (result.resultCode == RESULT_OK) "Bildschirmfreigabe erteilt"
+            else "Bildschirmaufnahme abgebrochen"
+        )
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -88,13 +94,16 @@ class MainActivity : AppCompatActivity(), ConnectChecker {
     override fun onResume() {
         super.onResume()
         activityActive = true
-        if (::orientationListener.isInitialized && orientationListener.canDetectOrientation()) orientationListener.enable()
+        if (::orientationListener.isInitialized && orientationListener.canDetectOrientation()) {
+            orientationListener.enable()
+        }
         if (hasCameraPermission()) startMainPreview()
         showConfiguration()
     }
 
     override fun onPause() {
         activityActive = false
+        mainHandler.removeCallbacksAndMessages(null)
         if (::orientationListener.isInitialized) orientationListener.disable()
         disableFrontCircle(updateSwitch = true)
         super.onPause()
@@ -104,12 +113,16 @@ class MainActivity : AppCompatActivity(), ConnectChecker {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return false
         return runCatching {
             val front = cameraManager.cameraIdList.filter { id ->
-                cameraManager.getCameraCharacteristics(id).get(CameraCharacteristics.LENS_FACING) == CameraCharacteristics.LENS_FACING_FRONT
+                cameraManager.getCameraCharacteristics(id)
+                    .get(CameraCharacteristics.LENS_FACING) == CameraCharacteristics.LENS_FACING_FRONT
             }.toSet()
             val back = cameraManager.cameraIdList.filter { id ->
-                cameraManager.getCameraCharacteristics(id).get(CameraCharacteristics.LENS_FACING) == CameraCharacteristics.LENS_FACING_BACK
+                cameraManager.getCameraCharacteristics(id)
+                    .get(CameraCharacteristics.LENS_FACING) == CameraCharacteristics.LENS_FACING_BACK
             }.toSet()
-            cameraManager.concurrentCameraIds.any { group -> group.any(front::contains) && group.any(back::contains) }
+            cameraManager.concurrentCameraIds.any { group ->
+                group.any(front::contains) && group.any(back::contains)
+            }
         }.getOrDefault(false)
     }
 
@@ -117,16 +130,11 @@ class MainActivity : AppCompatActivity(), ConnectChecker {
         orientationListener = object : OrientationEventListener(this) {
             override fun onOrientationChanged(orientation: Int) {
                 if (orientation == ORIENTATION_UNKNOWN) return
-                val rotation = when (orientation) {
+                currentRotation = when (orientation) {
                     in 45..134 -> 270
                     in 135..224 -> 180
                     in 225..314 -> 90
                     else -> 0
-                }
-                if (rotation != currentRotation) {
-                    currentRotation = rotation
-                    binding.openGlView.rotation = rotation.toFloat()
-                    binding.frontCameraPreview.rotation = rotation.toFloat()
                 }
             }
         }
@@ -139,19 +147,26 @@ class MainActivity : AppCompatActivity(), ConnectChecker {
             listOf("Rückkamera", "Frontkamera", "Handyspiel / Bildschirm", "TV / HDMI über USB-Capture")
         )
         binding.frontCircleSwitch.isEnabled = concurrentSupported
-        if (!concurrentSupported) binding.frontCircleSwitch.text = "Frontkamera-Kreis wird von diesem Handy nicht unterstützt"
+        if (!concurrentSupported) {
+            binding.frontCircleSwitch.text = "Frontkamera-Kreis wird von diesem Handy nicht unterstützt"
+            binding.frontCameraPreview.visibility = View.GONE
+        }
     }
 
     private fun configurePreview() {
         binding.openGlView.holder.addCallback(object : SurfaceHolder.Callback {
             override fun surfaceCreated(holder: SurfaceHolder) = Unit
+
             override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {
                 previewReady = true
                 startMainPreview()
             }
+
             override fun surfaceDestroyed(holder: SurfaceHolder) {
                 previewReady = false
-                runCatching { if (rtmpCamera.isOnPreview) rtmpCamera.stopPreview() }
+                runCatching {
+                    if (rtmpCamera.isOnPreview) rtmpCamera.stopPreview()
+                }
             }
         })
     }
@@ -162,18 +177,27 @@ class MainActivity : AppCompatActivity(), ConnectChecker {
             override fun onSurfaceTextureAvailable(surface: SurfaceTexture, width: Int, height: Int) {
                 if (binding.frontCircleSwitch.isChecked) startFrontCircle()
             }
+
             override fun onSurfaceTextureSizeChanged(surface: SurfaceTexture, width: Int, height: Int) = Unit
+
             override fun onSurfaceTextureDestroyed(surface: SurfaceTexture): Boolean {
                 disableFrontCircle(updateSwitch = true)
                 return true
             }
+
             override fun onSurfaceTextureUpdated(surface: SurfaceTexture) = Unit
         }
+
         binding.frontCameraPreview.setOnTouchListener { view, event ->
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
-                    dragDownX = event.rawX; dragDownY = event.rawY; dragStartX = view.x; dragStartY = view.y; true
+                    dragDownX = event.rawX
+                    dragDownY = event.rawY
+                    dragStartX = view.x
+                    dragStartY = view.y
+                    true
                 }
+
                 MotionEvent.ACTION_MOVE -> {
                     val maxX = (binding.cameraStage.width - view.width).coerceAtLeast(0).toFloat()
                     val maxY = (binding.cameraStage.height - view.height).coerceAtLeast(0).toFloat()
@@ -181,23 +205,38 @@ class MainActivity : AppCompatActivity(), ConnectChecker {
                     view.y = (dragStartY + event.rawY - dragDownY).coerceIn(0f, maxY)
                     true
                 }
+
                 else -> true
             }
         }
     }
 
     private fun configureControls() {
-        binding.settingsButton.setOnClickListener { startActivity(Intent(this, SettingsActivity::class.java)) }
-        binding.chatButton.setOnClickListener { startActivity(Intent(this, ChatActivity::class.java)) }
+        binding.settingsButton.setOnClickListener {
+            startActivity(Intent(this, SettingsActivity::class.java))
+        }
+        binding.chatButton.setOnClickListener {
+            startActivity(Intent(this, ChatActivity::class.java))
+        }
         binding.frontCircleSwitch.setOnCheckedChangeListener { _, enabled ->
+            if (suppressFrontSwitchCallback) return@setOnCheckedChangeListener
             if (enabled) {
+                if (!concurrentSupported) {
+                    setFrontSwitchChecked(false)
+                    status("Frontkamera-Kreis wird von diesem Handy nicht unterstützt")
+                    return@setOnCheckedChangeListener
+                }
                 binding.frontCameraPreview.visibility = View.VISIBLE
-                mainHandler.postDelayed({ startFrontCircle() }, 250)
-            } else disableFrontCircle(updateSwitch = false)
+                mainHandler.postDelayed({ startFrontCircle() }, 350)
+            } else {
+                disableFrontCircle(updateSwitch = false)
+            }
         }
         binding.startButton.setOnClickListener {
             when (binding.sourceSpinner.selectedItemPosition) {
-                2 -> screenCaptureLauncher.launch(getSystemService(MediaProjectionManager::class.java).createScreenCaptureIntent())
+                2 -> screenCaptureLauncher.launch(
+                    getSystemService(MediaProjectionManager::class.java).createScreenCaptureIntent()
+                )
                 3 -> status("Bitte USB-Capture-Gerät in den Einstellungen auswählen")
                 else -> toggleStream()
             }
@@ -208,13 +247,23 @@ class MainActivity : AppCompatActivity(), ConnectChecker {
                 .onFailure { status("Kamera konnte nicht gewechselt werden") }
         }
         binding.micSwitch.setOnCheckedChangeListener { _, enabled ->
-            runCatching { if (enabled) rtmpCamera.enableAudio() else rtmpCamera.disableAudio() }
+            runCatching {
+                if (enabled) rtmpCamera.enableAudio() else rtmpCamera.disableAudio()
+            }
         }
-        binding.micVolume.setOnSeekBarChangeListener(simpleSeekListener { status("Mikrofonpegel: $it %") })
-        binding.deviceVolume.setOnSeekBarChangeListener(simpleSeekListener { progress ->
-            val max = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
-            audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, ((progress / 100f) * max).toInt(), 0)
-        })
+        binding.micVolume.setOnSeekBarChangeListener(
+            simpleSeekListener { status("Mikrofonpegel: $it %") }
+        )
+        binding.deviceVolume.setOnSeekBarChangeListener(
+            simpleSeekListener { progress ->
+                val max = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+                audioManager.setStreamVolume(
+                    AudioManager.STREAM_MUSIC,
+                    ((progress.coerceIn(0, 100) / 100f) * max).toInt(),
+                    0
+                )
+            }
+        )
     }
 
     private fun startMainPreview() {
@@ -227,34 +276,62 @@ class MainActivity : AppCompatActivity(), ConnectChecker {
     private fun startFrontCircle() {
         if (!concurrentSupported || !activityActive || !binding.frontCircleSwitch.isChecked) return
         if (!hasCameraPermission() || !binding.frontCameraPreview.isAvailable || frontCamera != null || frontOpening) return
+
         val frontId = runCatching {
             cameraManager.cameraIdList.firstOrNull { id ->
-                cameraManager.getCameraCharacteristics(id).get(CameraCharacteristics.LENS_FACING) == CameraCharacteristics.LENS_FACING_FRONT
+                cameraManager.getCameraCharacteristics(id)
+                    .get(CameraCharacteristics.LENS_FACING) == CameraCharacteristics.LENS_FACING_FRONT
             }
-        }.getOrNull() ?: return disableFrontCircle(true)
+        }.getOrNull()
+
+        if (frontId == null) {
+            disableFrontCircle(updateSwitch = true)
+            status("Keine Frontkamera gefunden")
+            return
+        }
 
         frontOpening = true
         try {
             cameraManager.openCamera(frontId, object : CameraDevice.StateCallback() {
                 override fun onOpened(camera: CameraDevice) {
                     frontOpening = false
-                    if (!activityActive || !binding.frontCircleSwitch.isChecked) return camera.close()
+                    if (!activityActive || !binding.frontCircleSwitch.isChecked) {
+                        camera.close()
+                        return
+                    }
                     frontCamera = camera
                     createFrontSession(camera)
                 }
-                override fun onDisconnected(camera: CameraDevice) { camera.close(); disableFrontCircle(true) }
-                override fun onError(camera: CameraDevice, error: Int) { camera.close(); disableFrontCircle(true) }
+
+                override fun onDisconnected(camera: CameraDevice) {
+                    camera.close()
+                    disableFrontCircle(updateSwitch = true)
+                }
+
+                override fun onError(camera: CameraDevice, error: Int) {
+                    camera.close()
+                    disableFrontCircle(updateSwitch = true)
+                    status("Frontkamera-Kreis wurde deaktiviert")
+                }
             }, mainHandler)
+        } catch (_: SecurityException) {
+            frontOpening = false
+            disableFrontCircle(updateSwitch = true)
+            status("Kameraberechtigung fehlt")
         } catch (_: Exception) {
             frontOpening = false
-            disableFrontCircle(true)
+            disableFrontCircle(updateSwitch = true)
             status("Frontkamera-Kreis wurde sicher deaktiviert")
         }
     }
 
     private fun createFrontSession(camera: CameraDevice) {
         try {
-            val texture = binding.frontCameraPreview.surfaceTexture ?: return disableFrontCircle(true)
+            val texture = binding.frontCameraPreview.surfaceTexture
+            if (texture == null) {
+                disableFrontCircle(updateSwitch = true)
+                return
+            }
             texture.setDefaultBufferSize(360, 360)
             val surface = Surface(texture)
             val request = camera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW).apply {
@@ -263,78 +340,146 @@ class MainActivity : AppCompatActivity(), ConnectChecker {
             }
             camera.createCaptureSession(listOf(surface), object : CameraCaptureSession.StateCallback() {
                 override fun onConfigured(session: CameraCaptureSession) {
-                    if (!activityActive || frontCamera == null) return session.close()
+                    if (!activityActive || frontCamera == null) {
+                        session.close()
+                        return
+                    }
                     frontSession = session
-                    runCatching { session.setRepeatingRequest(request.build(), null, mainHandler) }
-                        .onFailure { disableFrontCircle(true) }
+                    runCatching {
+                        session.setRepeatingRequest(request.build(), null, mainHandler)
+                    }.onFailure {
+                        disableFrontCircle(updateSwitch = true)
+                    }
                 }
-                override fun onConfigureFailed(session: CameraCaptureSession) { session.close(); disableFrontCircle(true) }
+
+                override fun onConfigureFailed(session: CameraCaptureSession) {
+                    session.close()
+                    disableFrontCircle(updateSwitch = true)
+                }
             }, mainHandler)
         } catch (_: Exception) {
-            disableFrontCircle(true)
+            disableFrontCircle(updateSwitch = true)
         }
     }
 
     private fun disableFrontCircle(updateSwitch: Boolean) {
         frontOpening = false
+        runCatching { frontSession?.stopRepeating() }
+        runCatching { frontSession?.abortCaptures() }
         runCatching { frontSession?.close() }
         runCatching { frontCamera?.close() }
         frontSession = null
         frontCamera = null
+
         if (::binding.isInitialized) {
             binding.frontCameraPreview.visibility = View.GONE
-            if (updateSwitch && binding.frontCircleSwitch.isChecked) {
-                binding.frontCircleSwitch.setOnCheckedChangeListener(null)
-                binding.frontCircleSwitch.isChecked = false
-                configureControls()
-            }
+            if (updateSwitch) setFrontSwitchChecked(false)
         }
+    }
+
+    private fun setFrontSwitchChecked(checked: Boolean) {
+        suppressFrontSwitchCallback = true
+        binding.frontCircleSwitch.isChecked = checked
+        suppressFrontSwitchCallback = false
     }
 
     private fun toggleStream() {
         if (rtmpCamera.isStreaming) {
             runCatching { rtmpCamera.stopStream() }
             binding.startButton.text = "Live starten"
-            return status("Stream beendet")
+            status("Stream beendet")
+            return
         }
+
         val prefs = getSharedPreferences("stream", MODE_PRIVATE)
         val server = prefs.getString("server", "").orEmpty().trim().trimEnd('/')
         val key = prefs.getString("key", "").orEmpty().trim().trimStart('/')
-        if (server.isBlank() || key.isBlank()) return status("RTMP-Server und Stream-Key in den Einstellungen speichern")
+        if (server.isBlank() || key.isBlank()) {
+            status("RTMP-Server und Stream-Key in den Einstellungen speichern")
+            return
+        }
+        if (!server.startsWith("rtmp://") && !server.startsWith("rtmps://")) {
+            status("Gespeicherter RTMP-Server ist ungültig")
+            return
+        }
+
+        disableFrontCircle(updateSwitch = true)
+
         val portrait = currentRotation == 0 || currentRotation == 180
         val prepared = runCatching {
-            rtmpCamera.prepareVideo(if (portrait) 720 else 1280, if (portrait) 1280 else 720, 30, 3_500_000, currentRotation, 2) &&
-                rtmpCamera.prepareAudio(128_000, 44_100, true, false, false)
+            rtmpCamera.prepareVideo(
+                if (portrait) 720 else 1280,
+                if (portrait) 1280 else 720,
+                30,
+                3_500_000,
+                currentRotation,
+                2
+            ) && rtmpCamera.prepareAudio(128_000, 44_100, true, false, false)
         }.getOrDefault(false)
-        if (!prepared) return status("Encoder konnte nicht vorbereitet werden")
+
+        if (!prepared) {
+            status("Encoder konnte nicht vorbereitet werden")
+            return
+        }
+
         runCatching { rtmpCamera.startStream("$server/$key") }
-            .onSuccess { binding.startButton.text = "Stream stoppen" }
-            .onFailure { status("Streamstart fehlgeschlagen") }
+            .onSuccess {
+                binding.startButton.text = "Stream stoppen"
+                status("Verbindung wird aufgebaut …")
+            }
+            .onFailure {
+                binding.startButton.text = "Live starten"
+                status("Streamstart fehlgeschlagen: ${it.message ?: "Unbekannter Fehler"}")
+            }
     }
 
     private fun requestPermissionsIfNeeded() {
-        val permissions = arrayOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO)
-        if (permissions.all { ContextCompat.checkSelfPermission(this, it) == PackageManager.PERMISSION_GRANTED }) startMainPreview()
-        else permissionLauncher.launch(permissions)
+        val required = mutableListOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO)
+        if (required.all {
+                ContextCompat.checkSelfPermission(this, it) == PackageManager.PERMISSION_GRANTED
+            }) {
+            startMainPreview()
+        } else {
+            permissionLauncher.launch(required.toTypedArray())
+        }
     }
 
-    private fun hasCameraPermission() = ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
+    private fun hasCameraPermission(): Boolean =
+        ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
 
     private fun showConfiguration() {
-        val configured = getSharedPreferences("stream", MODE_PRIVATE).getString("key", "").orEmpty().isNotBlank()
-        status(if (configured) "Stream eingerichtet · stabiler Kameramodus" else "Stream noch nicht eingerichtet")
+        val prefs = getSharedPreferences("stream", MODE_PRIVATE)
+        val configured = !prefs.getString("server", "").isNullOrBlank() &&
+            !prefs.getString("key", "").isNullOrBlank()
+        status(
+            if (configured) "Stream eingerichtet · stabiler Android-Kameramodus"
+            else "Stream noch nicht eingerichtet"
+        )
     }
 
-    private fun simpleSeekListener(action: (Int) -> Unit) = object : SeekBar.OnSeekBarChangeListener {
-        override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) { if (fromUser) action(progress) }
-        override fun onStartTrackingTouch(seekBar: SeekBar?) = Unit
-        override fun onStopTrackingTouch(seekBar: SeekBar?) = Unit
+    private fun simpleSeekListener(action: (Int) -> Unit) =
+        object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                if (fromUser) action(progress)
+            }
+
+            override fun onStartTrackingTouch(seekBar: SeekBar?) = Unit
+            override fun onStopTrackingTouch(seekBar: SeekBar?) = Unit
+        }
+
+    private fun status(text: String) {
+        runOnUiThread { binding.statusText.text = text }
     }
 
-    private fun status(text: String) { runOnUiThread { binding.statusText.text = text } }
     override fun onConnectionStarted(url: String) = status("Verbinde …")
     override fun onConnectionSuccess() = status("LIVE – Verbindung steht")
-    override fun onConnectionFailed(reason: String) { runCatching { rtmpCamera.stopStream() }; status("Verbindung fehlgeschlagen: $reason") }
+
+    override fun onConnectionFailed(reason: String) {
+        runCatching { if (rtmpCamera.isStreaming) rtmpCamera.stopStream() }
+        runOnUiThread { binding.startButton.text = "Live starten" }
+        status("Verbindung fehlgeschlagen: $reason")
+    }
+
     override fun onNewBitrate(bitrate: Long) = status("LIVE – ${bitrate / 1000} kbit/s")
     override fun onDisconnect() = status("Verbindung getrennt")
     override fun onAuthError() = status("Stream-Key wurde abgelehnt")
@@ -342,6 +487,7 @@ class MainActivity : AppCompatActivity(), ConnectChecker {
 
     override fun onDestroy() {
         activityActive = false
+        mainHandler.removeCallbacksAndMessages(null)
         disableFrontCircle(updateSwitch = false)
         runCatching { if (rtmpCamera.isStreaming) rtmpCamera.stopStream() }
         runCatching { if (rtmpCamera.isOnPreview) rtmpCamera.stopPreview() }

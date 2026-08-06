@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#0B1020">
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="TikFinity LIVE-Chat" android:textColor="#FFFFFF" android:textSize="25sp" android:textStyle="bold" />
+        <TextView android:id="@+id/chatStatus" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Nicht verbunden" android:textColor="#94A3B8" />
+        <EditText android:id="@+id/socketUrl" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="TikFinity WebSocket-Adresse" android:inputType="textUri" android:textColor="#FFFFFF" android:textColorHint="#64748B" />
+        <EditText android:id="@+id/apiKey" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="TikFinity API-Schlüssel" android:inputType="textPassword" android:textColor="#FFFFFF" android:textColorHint="#64748B" />
+        <EditText android:id="@+id/roomName" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="TikTok-Name / Raum" android:textColor="#FFFFFF" android:textColorHint="#64748B" />
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+            <Button android:id="@+id/connectButton" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Verbinden" />
+            <Button android:id="@+id/testButton" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Testnachricht" />
+        </LinearLayout>
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="16dp" android:text="Vorlesen" android:textColor="#FFFFFF" android:textSize="20sp" android:textStyle="bold" />
+        <Switch android:id="@+id/ttsEnabled" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Chat automatisch vorlesen" android:textColor="#FFFFFF" />
+        <Spinner android:id="@+id/voiceSpinner" android:layout_width="match_parent" android:layout_height="wrap_content" />
+        <Spinner android:id="@+id/filterSpinner" android:layout_width="match_parent" android:layout_height="wrap_content" />
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Geschwindigkeit" android:textColor="#FFFFFF" />
+        <SeekBar android:id="@+id/speedBar" android:layout_width="match_parent" android:layout_height="wrap_content" android:max="200" android:progress="100" />
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Tonhöhe" android:textColor="#FFFFFF" />
+        <SeekBar android:id="@+id/pitchBar" android:layout_width="match_parent" android:layout_height="wrap_content" android:max="200" android:progress="100" />
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Vorlese-Lautstärke" android:textColor="#FFFFFF" />
+        <SeekBar android:id="@+id/ttsVolume" android:layout_width="match_parent" android:layout_height="wrap_content" android:max="100" android:progress="100" />
+        <EditText android:id="@+id/allowedUsers" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="Ausgewählte Nutzer, mit Komma getrennt" android:textColor="#FFFFFF" android:textColorHint="#64748B" />
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="16dp" android:text="Live-Nachrichten" android:textColor="#FFFFFF" android:textSize="20sp" android:textStyle="bold" />
+        <LinearLayout android:id="@+id/chatMessages" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" />
+        <Button android:id="@+id/saveChatSettings" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="16dp" android:text="Chat-Einstellungen speichern" />
+    </LinearLayout>
+</ScrollView>

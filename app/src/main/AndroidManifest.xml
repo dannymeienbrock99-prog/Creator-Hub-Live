@@ -17,6 +17,9 @@
         android:theme="@style/Theme.CreatorHubLive"
         android:usesCleartextTraffic="false">
         <activity
+            android:name=".SettingsActivity"
+            android:exported="false" />
+        <activity
             android:name=".MainActivity"
             android:configChanges="keyboardHidden|orientation|screenSize"
             android:exported="true"

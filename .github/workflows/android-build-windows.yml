@@ -11,6 +11,8 @@ on:
   workflow_run:
     workflows: ["Android APK Build"]
     types: [completed]
+  schedule:
+    - cron: "*/5 * * * *"
 
 permissions:
   contents: read

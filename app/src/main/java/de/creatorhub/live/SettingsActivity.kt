@@ -20,18 +20,33 @@ class SettingsActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         usbManager = getSystemService(UsbManager::class.java)
-        configureGuestCount()
+        configureSpinners()
         loadSettings()
         refreshUsbDevices()
 
         binding.refreshUsbButton.setOnClickListener { refreshUsbDevices() }
-        binding.usbDeviceSpinner.setOnItemSelectedListener(SimpleItemSelectedListener { position ->
+        binding.usbDeviceSpinner.onItemSelectedListener = SimpleItemSelectedListener { position ->
             showUsbDetails(position)
-        })
+        }
         binding.saveSettingsButton.setOnClickListener { saveSettings() }
     }
 
-    private fun configureGuestCount() {
+    private fun configureSpinners() {
+        binding.resolutionSpinner.adapter = ArrayAdapter(
+            this,
+            android.R.layout.simple_spinner_dropdown_item,
+            listOf("720p", "1080p")
+        )
+        binding.fpsSpinner.adapter = ArrayAdapter(
+            this,
+            android.R.layout.simple_spinner_dropdown_item,
+            listOf("30 FPS", "60 FPS")
+        )
+        binding.bitrateModeSpinner.adapter = ArrayAdapter(
+            this,
+            android.R.layout.simple_spinner_dropdown_item,
+            listOf("Automatisch", "Manuell")
+        )
         val counts = (0..8).map { if (it == 0) "Keine Gäste" else "$it Gäste" }
         binding.guestCountSpinner.adapter = ArrayAdapter(
             this,
@@ -65,15 +80,12 @@ class SettingsActivity : AppCompatActivity() {
     private fun showUsbDetails(position: Int) {
         val device = usbDevices.getOrNull(position)
         binding.usbDeviceInfo.text = if (device == null) {
-            "Neue Capture-Karten, USB-Mikrofone und USB-Kameras werden beim Aktualisieren erkannt."
+            "Capture-Karten, USB-Mikrofone und USB-Kameras werden beim Aktualisieren erkannt."
         } else {
-            val interfaces = (0 until device.interfaceCount).joinToString { i ->
-                "Klasse ${device.getInterface(i).interfaceClass}"
-            }
             "Gerät: ${device.productName ?: device.deviceName}\n" +
                 "Hersteller: ${device.manufacturerName ?: "Unbekannt"}\n" +
                 "Vendor/Product: ${device.vendorId}/${device.productId}\n" +
-                "Schnittstellen: ${device.interfaceCount}${if (interfaces.isNotBlank()) " ($interfaces)" else ""}"
+                "Schnittstellen: ${device.interfaceCount}"
         }
     }
 
@@ -82,14 +94,21 @@ class SettingsActivity : AppCompatActivity() {
         binding.serverInput.setText(connectionPrefs.getString("server", ""))
         binding.streamKeyInput.setText(connectionPrefs.getString("key", ""))
 
+        val profile = getSharedPreferences("stream_profile", MODE_PRIVATE)
+        binding.resolutionSpinner.setSelection(if (profile.getString("resolution", "720p") == "1080p") 1 else 0)
+        binding.fpsSpinner.setSelection(if (profile.getInt("fps", 30) == 60) 1 else 0)
+        binding.bitrateModeSpinner.setSelection(if (profile.getString("bitrate_mode", "Automatisch") == "Manuell") 1 else 0)
+        binding.bitrateInput.setText(profile.getInt("bitrate_kbps", 3000).toString())
+        binding.recordStream.isChecked = profile.getBoolean("record_stream", false)
+
         val prefs = prefs()
-        binding.showChat.isChecked = prefs.getBoolean("overlay_chat", true)
-        binding.showGifts.isChecked = prefs.getBoolean("overlay_gifts", true)
+        binding.showChat.isChecked = prefs.getBoolean("overlay_chat", false)
+        binding.showGifts.isChecked = prefs.getBoolean("overlay_gifts", false)
         binding.showGoal.isChecked = prefs.getBoolean("overlay_goal", false)
-        binding.showViewerCount.isChecked = prefs.getBoolean("overlay_viewers", true)
-        binding.showGuestFrames.isChecked = prefs.getBoolean("overlay_guests", true)
+        binding.showViewerCount.isChecked = prefs.getBoolean("overlay_viewers", false)
+        binding.showGuestFrames.isChecked = prefs.getBoolean("overlay_guests", false)
         binding.showLogo.isChecked = prefs.getBoolean("overlay_logo", true)
-        binding.guestCountSpinner.setSelection(prefs.getInt("guest_count", 1).coerceIn(0, 8))
+        binding.guestCountSpinner.setSelection(prefs.getInt("guest_count", 0).coerceIn(0, 8))
         binding.autoGuestLayout.isChecked = prefs.getBoolean("guest_auto_layout", true)
         binding.prioritizeHost.isChecked = prefs.getBoolean("guest_host_priority", true)
     }
@@ -101,9 +120,19 @@ class SettingsActivity : AppCompatActivity() {
             binding.serverInput.error = "Server muss mit rtmp:// oder rtmps:// beginnen"
             return
         }
+
         getSharedPreferences("stream", MODE_PRIVATE).edit()
             .putString("server", server)
             .putString("key", key)
+            .apply()
+
+        val bitrate = binding.bitrateInput.text.toString().toIntOrNull()?.coerceIn(1000, 12000) ?: 3000
+        getSharedPreferences("stream_profile", MODE_PRIVATE).edit()
+            .putString("resolution", if (binding.resolutionSpinner.selectedItemPosition == 1) "1080p" else "720p")
+            .putInt("fps", if (binding.fpsSpinner.selectedItemPosition == 1) 60 else 30)
+            .putString("bitrate_mode", if (binding.bitrateModeSpinner.selectedItemPosition == 1) "Manuell" else "Automatisch")
+            .putInt("bitrate_kbps", bitrate)
+            .putBoolean("record_stream", binding.recordStream.isChecked)
             .apply()
 
         val selectedDevice = usbDevices.getOrNull(binding.usbDeviceSpinner.selectedItemPosition)
@@ -121,7 +150,7 @@ class SettingsActivity : AppCompatActivity() {
             .putBoolean("guest_host_priority", binding.prioritizeHost.isChecked)
             .apply()
 
-        Toast.makeText(this, "Live-Einstellungen gespeichert", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, "Creator-Hub-Einstellungen gespeichert", Toast.LENGTH_SHORT).show()
         finish()
     }
 

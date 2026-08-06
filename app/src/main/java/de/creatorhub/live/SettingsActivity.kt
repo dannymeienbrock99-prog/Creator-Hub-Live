@@ -78,6 +78,10 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun loadSettings() {
+        val connectionPrefs = getSharedPreferences("stream", MODE_PRIVATE)
+        binding.serverInput.setText(connectionPrefs.getString("server", ""))
+        binding.streamKeyInput.setText(connectionPrefs.getString("key", ""))
+
         val prefs = prefs()
         binding.showChat.isChecked = prefs.getBoolean("overlay_chat", true)
         binding.showGifts.isChecked = prefs.getBoolean("overlay_gifts", true)
@@ -91,6 +95,17 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun saveSettings() {
+        val server = binding.serverInput.text.toString().trim().trimEnd('/')
+        val key = binding.streamKeyInput.text.toString().trim().trimStart('/')
+        if (server.isNotBlank() && !server.startsWith("rtmp://") && !server.startsWith("rtmps://")) {
+            binding.serverInput.error = "Server muss mit rtmp:// oder rtmps:// beginnen"
+            return
+        }
+        getSharedPreferences("stream", MODE_PRIVATE).edit()
+            .putString("server", server)
+            .putString("key", key)
+            .apply()
+
         val selectedDevice = usbDevices.getOrNull(binding.usbDeviceSpinner.selectedItemPosition)
         prefs().edit()
             .putInt("usb_device_id", selectedDevice?.deviceId ?: -1)

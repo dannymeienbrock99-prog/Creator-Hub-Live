@@ -1,54 +1,32 @@
-# Creator Hub Live
+# Creator Hub Live – Android
 
-Creator Hub Live ist jetzt als gemeinsames Mobile-Projekt für Android und iPhone aufgebaut.
+Der aktuelle Entwicklungs- und Build-Stand konzentriert sich ausschließlich auf Android. Es wird eine installierbare APK erzeugt; iOS ist vorerst pausiert und wird nicht gebaut.
 
-## Plattformen
+## Android-Funktionen
 
-- Android: native Kotlin-App, installierbar als APK
-- iPhone/iPad: native SwiftUI-App, baubar als Xcode-Projekt
-- Gemeinsame Web-Overlays für Chat und Geschenk-Animationen
-- Gemeinsame Funktionsbeschreibung unter `shared/config/app-capabilities.json`
-
-Eine einzelne Installationsdatei für beide Systeme ist technisch nicht möglich. Android verwendet APK/AAB, Apple verwendet eine signierte IPA beziehungsweise TestFlight.
-
-## Android – bereits eingebaut
-
-- TikTok-RTMP-/RTMPS-Server und Stream-Key
-- Kameravorschau
-- Front- und Rückkamera
+- RTMP-/RTMPS-Server und Stream-Key in den Einstellungen
+- stabile Kamera-Vorschau
+- Umschalten zwischen Rück- und Frontkamera
 - Hoch- und Querformat mit Lagesensor
-- Mikrofon und Geräteton
+- Mikrofon- und Gerätelautstärke
 - USB-Geräteerkennung und Capture-Auswahl
 - Overlay- und Gastplatz-Einstellungen
 - TikFinity-Chat über WebSocket
 - Text-to-Speech mit Stimmen, Tempo, Tonhöhe, Lautstärke und Rollenfiltern
+- eigenes Creator-Hub-App-Logo
 
-## iOS – Projektstruktur
+## Android-Build
 
-- SwiftUI-App
-- Kamera-Grundmodul
-- Geräteausrichtung
-- TikFinity-WebSocket-Grundmodul
-- Chatdarstellung
-- Text-to-Speech
-- Overlay- und Gastplatz-Einstellungen
-- XcodeGen-Projektdefinition unter `ios/project.yml`
+Der Workflow `.github/workflows/android-build.yml` kompiliert die Android-App, prüft die erzeugte APK und stellt sie als GitHub-Actions-Artefakt `CreatorHub-Live-v1.3.5-Stable` bereit.
 
-## Gemeinsamer Build
+## Aktueller Stabilitätsmodus
 
-Der Workflow `.github/workflows/mobile-build.yml` baut:
+Für eine möglichst breite Gerätekompatibilität verwendet die App jeweils eine Kamera gleichzeitig. Rück- und Frontkamera können über die Schaltfläche „Kamera wechseln“ umgeschaltet werden. Die experimentelle gleichzeitige Doppel-Kamera wurde aus dem stabilen Build entfernt.
 
-1. eine Android-Debug-APK auf Ubuntu
-2. eine iOS-Simulator-App auf macOS
+## Noch nicht vollständig umgesetzt
 
-Die Simulator-App ist keine auf einem echten iPhone installierbare IPA. Für eine Geräte-IPA oder TestFlight werden Apple-Developer-Zertifikate, ein Provisioning Profile und eine Apple-Team-ID als GitHub-Secrets benötigt.
-
-## Noch nicht vollständig produktionsbereit
-
-- vollständiges Bildschirm-Streaming
-- echte UVC-Videoübertragung
+- echtes Bildschirm-Streaming über MediaProjection
+- vollständige UVC-/HDMI-Videoübertragung
 - TikTok-Multi-Guest-Verbindung
-- vollständig gerenderte Overlays direkt im Videostream
-- signierter Android-Release-Build
-- signierte iOS-IPA/TestFlight-Auslieferung
-- Hardwaretest mit realer TikFinity-Konfiguration
+- direkt in das gesendete Videobild gerenderte Web-Overlays
+- signierter Play-Store-Release-Build

@@ -1,3 +1,5 @@
+import { LiveEventConnector } from '../live-connector/LiveEventConnector.js';
+
 const chat = document.getElementById('chat');
 
 const state = {
@@ -10,6 +12,8 @@ const state = {
   fontSize: 18,
   opacity: 0.76
 };
+
+let connector = null;
 
 function applyAppearance() {
   document.documentElement.style.setProperty('--chat-font-size', `${state.fontSize}px`);
@@ -59,12 +63,52 @@ function configure(options = {}) {
   applyAppearance();
 }
 
-window.CreatorHubChat = { addMessage, configure };
+function connectLive(options = {}) {
+  connector?.disconnect();
+  connector = new LiveEventConnector(options);
+
+  connector.on('chat', message => addMessage(message));
+  connector.on('gift', gift => {
+    addMessage({
+      username: gift.username,
+      text: `sendet ${gift.giftName} ×${gift.repeatCount}`,
+      type: 'gift'
+    });
+
+    window.parent.postMessage({
+      type: 'creatorhub-gift-event',
+      payload: gift
+    }, '*');
+  });
+  connector.on('connection', status => {
+    window.parent.postMessage({
+      type: 'creatorhub-live-connection',
+      payload: status
+    }, '*');
+  });
+  connector.on('viewerCount', data => {
+    window.parent.postMessage({
+      type: 'creatorhub-viewer-count',
+      payload: data
+    }, '*');
+  });
+  connector.on('error', error => console.error('[CreatorHub Live]', error.message));
+  connector.connect();
+}
+
+function disconnectLive() {
+  connector?.disconnect();
+  connector = null;
+}
+
+window.CreatorHubChat = { addMessage, configure, connectLive, disconnectLive };
 window.addEventListener('message', event => {
   const data = event.data;
   if (!data || typeof data !== 'object') return;
   if (data.type === 'creatorhub-chat-message') addMessage(data.payload);
   if (data.type === 'creatorhub-chat-config') configure(data.payload);
+  if (data.type === 'creatorhub-live-connect') connectLive(data.payload);
+  if (data.type === 'creatorhub-live-disconnect') disconnectLive();
 });
 
 applyAppearance();
@@ -74,4 +118,13 @@ if (params.get('demo') === '1') {
   addMessage({ username: 'Crazy_Batto', text: 'Willkommen im Creator Hub Live!', moderator: true });
   setTimeout(() => addMessage({ username: 'Luna', text: 'Das Overlay sieht richtig gut aus 🔥', subscriber: true }), 700);
   setTimeout(() => addMessage({ username: 'Max', text: 'sendet eine Schatzkiste ×1', type: 'gift' }), 1400);
+}
+
+const liveUrl = params.get('liveUrl');
+if (liveUrl) {
+  connectLive({
+    url: liveUrl,
+    apiKey: params.get('apiKey') || '',
+    room: params.get('room') || ''
+  });
 }

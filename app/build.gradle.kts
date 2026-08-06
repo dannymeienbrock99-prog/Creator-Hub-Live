@@ -13,8 +13,9 @@ android {
         applicationId = "de.creatorhub.live"
         minSdk = 26
         targetSdk = 35
-        versionCode = 7
-        versionName = "1.3.3"
+        versionCode = 8
+        versionName = "1.3.4"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     buildFeatures { viewBinding = true }
@@ -38,4 +39,9 @@ dependencies {
     implementation("androidx.activity:activity-ktx:1.10.0")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("com.github.pedroSG94.RootEncoder:library:2.7.2")
+
+    androidTestImplementation("androidx.test:core-ktx:1.6.1")
+    androidTestImplementation("androidx.test.ext:junit-ktx:1.2.1")
+    androidTestImplementation("androidx.test:rules:1.6.1")
+    androidTestImplementation("androidx.test.espresso:espresso-core:3.6.1")
 }

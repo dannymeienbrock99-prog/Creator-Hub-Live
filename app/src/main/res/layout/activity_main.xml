@@ -10,119 +10,23 @@
         android:orientation="vertical"
         android:padding="16dp">
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Creator Hub Live"
-            android:textColor="#FFFFFF"
-            android:textSize="26sp"
-            android:textStyle="bold" />
-
-        <TextView
-            android:id="@+id/statusText"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
-            android:text="Nicht verbunden"
-            android:textColor="#94A3B8" />
-
-        <Button
-            android:id="@+id/settingsButton"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="10dp"
-            android:text="USB, Overlay und Gäste einstellen" />
-
-        <com.pedro.library.view.OpenGlView
-            android:id="@+id/openGlView"
-            android:layout_width="match_parent"
-            android:layout_height="220dp"
-            android:layout_marginTop="16dp" />
-
-        <EditText
-            android:id="@+id/serverInput"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:hint="TikTok RTMP-Server, z. B. rtmps://..."
-            android:inputType="textUri"
-            android:textColor="#FFFFFF"
-            android:textColorHint="#64748B" />
-
-        <EditText
-            android:id="@+id/streamKeyInput"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:hint="TikTok Stream-Key"
-            android:inputType="textPassword"
-            android:textColor="#FFFFFF"
-            android:textColorHint="#64748B" />
-
-        <Spinner
-            android:id="@+id/sourceSpinner"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp" />
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal">
-
-            <Button
-                android:id="@+id/startButton"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Live starten" />
-
-            <Button
-                android:id="@+id/switchCameraButton"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Kamera wechseln" />
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Creator Hub Live" android:textColor="#FFFFFF" android:textSize="26sp" android:textStyle="bold" />
+        <TextView android:id="@+id/statusText" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="6dp" android:text="Nicht verbunden" android:textColor="#94A3B8" />
+        <Button android:id="@+id/settingsButton" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="10dp" android:text="USB, Overlay und Gäste einstellen" />
+        <Button android:id="@+id/chatButton" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="TikFinity Chat und Vorlesen" />
+        <com.pedro.library.view.OpenGlView android:id="@+id/openGlView" android:layout_width="match_parent" android:layout_height="220dp" android:layout_marginTop="16dp" />
+        <EditText android:id="@+id/serverInput" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="16dp" android:hint="TikTok RTMP-Server, z. B. rtmps://..." android:inputType="textUri" android:textColor="#FFFFFF" android:textColorHint="#64748B" />
+        <EditText android:id="@+id/streamKeyInput" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="TikTok Stream-Key" android:inputType="textPassword" android:textColor="#FFFFFF" android:textColorHint="#64748B" />
+        <Spinner android:id="@+id/sourceSpinner" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" />
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+            <Button android:id="@+id/startButton" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Live starten" />
+            <Button android:id="@+id/switchCameraButton" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Kamera wechseln" />
         </LinearLayout>
-
-        <Switch
-            android:id="@+id/micSwitch"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:checked="true"
-            android:text="Mikrofon aktiv"
-            android:textColor="#FFFFFF" />
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Mikrofon-Lautstärke"
-            android:textColor="#FFFFFF" />
-
-        <SeekBar
-            android:id="@+id/micVolume"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:max="200"
-            android:progress="100" />
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Geräte-/Spielton"
-            android:textColor="#FFFFFF" />
-
-        <SeekBar
-            android:id="@+id/deviceVolume"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:max="100"
-            android:progress="100" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:text="Bildschirmaufnahme erfordert eine Android-Freigabe. TV/HDMI-Aufnahme benötigt ein kompatibles USB-Capture-Gerät."
-            android:textColor="#94A3B8" />
+        <Switch android:id="@+id/micSwitch" android:layout_width="match_parent" android:layout_height="wrap_content" android:checked="true" android:text="Mikrofon aktiv" android:textColor="#FFFFFF" />
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Mikrofon-Lautstärke" android:textColor="#FFFFFF" />
+        <SeekBar android:id="@+id/micVolume" android:layout_width="match_parent" android:layout_height="wrap_content" android:max="200" android:progress="100" />
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Geräte-/Spielton" android:textColor="#FFFFFF" />
+        <SeekBar android:id="@+id/deviceVolume" android:layout_width="match_parent" android:layout_height="wrap_content" android:max="100" android:progress="100" />
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:text="Bildschirmaufnahme erfordert eine Android-Freigabe. TV/HDMI-Aufnahme benötigt ein kompatibles USB-Capture-Gerät." android:textColor="#94A3B8" />
     </LinearLayout>
 </ScrollView>

@@ -1,38 +1,54 @@
 # Creator Hub Live
 
-Android-Livestream-App für TikTok RTMP/RTMPS.
+Creator Hub Live ist jetzt als gemeinsames Mobile-Projekt für Android und iPhone aufgebaut.
 
-## Bereits eingebaut
+## Plattformen
 
-- TikTok-RTMP-/RTMPS-Server eingeben
-- TikTok-Stream-Key eingeben und lokal speichern
+- Android: native Kotlin-App, installierbar als APK
+- iPhone/iPad: native SwiftUI-App, baubar als Xcode-Projekt
+- Gemeinsame Web-Overlays für Chat und Geschenk-Animationen
+- Gemeinsame Funktionsbeschreibung unter `shared/config/app-capabilities.json`
+
+Eine einzelne Installationsdatei für beide Systeme ist technisch nicht möglich. Android verwendet APK/AAB, Apple verwendet eine signierte IPA beziehungsweise TestFlight.
+
+## Android – bereits eingebaut
+
+- TikTok-RTMP-/RTMPS-Server und Stream-Key
 - Kameravorschau
-- Stream starten und stoppen
-- Front- und Rückkamera wechseln
-- Mikrofon aktivieren und stummschalten
-- Regler für Mikrofon und Geräteton in der Oberfläche
-- Auswahl für Handyspiel-/Bildschirmaufnahme
-- Auswahl für TV-/HDMI-Aufnahme über USB-Capture
-- Statusmeldungen für Verbindung, Authentifizierung und Bitrate
-- Hoch- und Querformat
+- Front- und Rückkamera
+- Hoch- und Querformat mit Lagesensor
+- Mikrofon und Geräteton
+- USB-Geräteerkennung und Capture-Auswahl
+- Overlay- und Gastplatz-Einstellungen
+- TikFinity-Chat über WebSocket
+- Text-to-Speech mit Stimmen, Tempo, Tonhöhe, Lautstärke und Rollenfiltern
 
-## Technischer Stand
+## iOS – Projektstruktur
 
-Die Kameraübertragung verwendet RootEncoder 2.7.2 und kann zu einem RTMP- oder RTMPS-Endpunkt senden.
+- SwiftUI-App
+- Kamera-Grundmodul
+- Geräteausrichtung
+- TikFinity-WebSocket-Grundmodul
+- Chatdarstellung
+- Text-to-Speech
+- Overlay- und Gastplatz-Einstellungen
+- XcodeGen-Projektdefinition unter `ios/project.yml`
 
-Die Android-Bildschirmfreigabe wird bereits über MediaProjection angefordert. Für eine vollständige Bildschirmübertragung muss als nächster Schritt ein MediaProjection-Foreground-Service mit RtmpDisplay angeschlossen werden.
+## Gemeinsamer Build
 
-TV-/HDMI-Aufnahme benötigt ein UVC-kompatibles USB-Capture-Gerät. Dafür muss CameraUvcSource aus dem RootEncoder-Modul `extra-sources` ergänzt und auf realer Hardware getestet werden.
+Der Workflow `.github/workflows/mobile-build.yml` baut:
 
-Der Geräteton-Regler ist derzeit eine UI-Vorbereitung. Android erlaubt Systemaudio-Aufnahme nur für freigegebene Apps und Inhalte über AudioPlaybackCapture.
+1. eine Android-Debug-APK auf Ubuntu
+2. eine iOS-Simulator-App auf macOS
 
-## Öffnen
+Die Simulator-App ist keine auf einem echten iPhone installierbare IPA. Für eine Geräte-IPA oder TestFlight werden Apple-Developer-Zertifikate, ein Provisioning Profile und eine Apple-Team-ID als GitHub-Secrets benötigt.
 
-1. Repository in Android Studio öffnen.
-2. JDK 17 verwenden.
-3. Gradle synchronisieren.
-4. App auf einem Android-Gerät ab API 26 starten.
-5. Kamera- und Mikrofonrechte erlauben.
-6. TikTok-Server und Stream-Key eintragen.
+## Noch nicht vollständig produktionsbereit
 
-TikTok muss RTMP/LIVE Studio für das verwendete Konto freigeschaltet haben.
+- vollständiges Bildschirm-Streaming
+- echte UVC-Videoübertragung
+- TikTok-Multi-Guest-Verbindung
+- vollständig gerenderte Overlays direkt im Videostream
+- signierter Android-Release-Build
+- signierte iOS-IPA/TestFlight-Auslieferung
+- Hardwaretest mit realer TikFinity-Konfiguration

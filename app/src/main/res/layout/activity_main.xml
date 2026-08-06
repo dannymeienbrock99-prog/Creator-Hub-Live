@@ -1,136 +1,419 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/liveRoot"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#05060A"
-    android:fillViewport="true">
+    android:background="#000000"
+    android:keepScreenOn="true">
 
-    <LinearLayout
+    <com.pedro.library.view.OpenGlView
+        android:id="@+id/openGlView"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:padding="16dp">
+        android:layout_height="match_parent" />
+
+    <View
+        android:id="@+id/cameraShade"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@drawable/live_screen_scrim" />
+
+    <FrameLayout
+        android:id="@+id/previewOverlayCanvas"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:clipChildren="false"
+        android:clipToPadding="false">
 
         <ImageView
-            android:id="@+id/headerLogo"
-            android:layout_width="150dp"
-            android:layout_height="100dp"
-            android:layout_gravity="center_horizontal"
-            android:contentDescription="Creator Hub Logo"
+            android:id="@+id/overlayLogo"
+            android:layout_width="86dp"
+            android:layout_height="66dp"
+            android:layout_gravity="top|start"
+            android:layout_marginStart="18dp"
+            android:layout_marginTop="92dp"
+            android:contentDescription="Creator Hub Logo im Stream"
             android:scaleType="fitCenter"
             android:src="@drawable/ic_creator_hub" />
 
         <TextView
-            android:layout_width="match_parent"
+            android:id="@+id/overlayText"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:gravity="center"
+            android:layout_gravity="bottom|start"
+            android:layout_marginStart="22dp"
+            android:layout_marginBottom="250dp"
+            android:background="@drawable/glass_chip"
+            android:maxWidth="280dp"
+            android:paddingStart="14dp"
+            android:paddingTop="9dp"
+            android:paddingEnd="14dp"
+            android:paddingBottom="9dp"
             android:text="Creator Hub Live"
             android:textColor="#FFFFFF"
-            android:textSize="25sp"
-            android:textStyle="bold" />
+            android:textSize="17sp"
+            android:textStyle="bold"
+            android:visibility="gone" />
+
+        <ImageView
+            android:id="@+id/overlayImage"
+            android:layout_width="110dp"
+            android:layout_height="110dp"
+            android:layout_gravity="top|end"
+            android:layout_marginTop="110dp"
+            android:layout_marginEnd="22dp"
+            android:contentDescription="Eigenes Bild-Overlay"
+            android:scaleType="fitCenter"
+            android:visibility="gone" />
 
         <TextView
-            android:id="@+id/statusText"
-            android:layout_width="match_parent"
+            android:id="@+id/giftOverlay"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
+            android:layout_gravity="center"
+            android:background="@drawable/gift_glow"
             android:gravity="center"
-            android:minHeight="44dp"
-            android:text="Kamera wird vorbereitet …"
-            android:textColor="#AAB4CF" />
+            android:padding="22dp"
+            android:text="🎁\nCreator Gift"
+            android:textColor="#FFFFFF"
+            android:textSize="24sp"
+            android:textStyle="bold"
+            android:visibility="gone" />
+    </FrameLayout>
 
-        <FrameLayout
-            android:id="@+id/cameraStage"
-            android:layout_width="match_parent"
-            android:layout_height="420dp"
-            android:layout_marginTop="12dp"
-            android:background="#000000">
+    <LinearLayout
+        android:id="@+id/topBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="16dp"
+        android:paddingTop="14dp"
+        android:paddingEnd="16dp"
+        android:paddingBottom="10dp">
 
-            <com.pedro.library.view.OpenGlView
-                android:id="@+id/openGlView"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent" />
-        </FrameLayout>
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:gravity="center"
-            android:text="Stabilitätsmodus: Eine Kamera gleichzeitig. Rück- und Frontkamera lassen sich über „Kamera wechseln“ umschalten."
-            android:textColor="#94A3B8" />
-
-        <Spinner
-            android:id="@+id/sourceSpinner"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="10dp" />
+        <ImageView
+            android:layout_width="46dp"
+            android:layout_height="46dp"
+            android:contentDescription="Creator Hub"
+            android:src="@drawable/ic_creator_hub" />
 
         <LinearLayout
-            android:layout_width="match_parent"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:orientation="horizontal">
+            android:layout_marginStart="10dp"
+            android:layout_weight="1"
+            android:orientation="vertical">
 
-            <Button
-                android:id="@+id/startButton"
-                android:layout_width="0dp"
+            <TextView
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Live starten" />
+                android:text="Creator Hub Live"
+                android:textColor="#FFFFFF"
+                android:textSize="20sp"
+                android:textStyle="bold" />
 
-            <Button
-                android:id="@+id/switchCameraButton"
-                android:layout_width="0dp"
+            <TextView
+                android:id="@+id/statusText"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Kamera wechseln" />
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:text="Kamera wird vorbereitet …"
+                android:textColor="#C7D2FE"
+                android:textSize="13sp" />
         </LinearLayout>
 
-        <Switch
-            android:id="@+id/micSwitch"
-            android:layout_width="match_parent"
+        <LinearLayout
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:checked="true"
-            android:text="Mikrofon aktiv"
-            android:textColor="#FFFFFF" />
+            android:background="@drawable/glass_chip"
+            android:gravity="center"
+            android:orientation="horizontal"
+            android:paddingStart="11dp"
+            android:paddingTop="8dp"
+            android:paddingEnd="11dp"
+            android:paddingBottom="8dp">
+
+            <View
+                android:id="@+id/qualityDot"
+                android:layout_width="9dp"
+                android:layout_height="9dp"
+                android:background="@drawable/status_dot_good" />
+
+            <TextView
+                android:id="@+id/qualityText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="7dp"
+                android:text="Bereit"
+                android:textColor="#FFFFFF"
+                android:textSize="13sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/rightRail"
+        android:layout_width="70dp"
+        android:layout_height="wrap_content"
+        android:layout_gravity="end|center_vertical"
+        android:gravity="center_horizontal"
+        android:orientation="vertical"
+        android:paddingEnd="8dp">
+
+        <Button
+            android:id="@+id/switchCameraButton"
+            android:layout_width="62dp"
+            android:layout_height="62dp"
+            android:background="@drawable/round_action_button"
+            android:contentDescription="Kamera wechseln"
+            android:text="↻"
+            android:textColor="#FFFFFF"
+            android:textSize="28sp" />
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Mikrofon-Lautstärke"
-            android:textColor="#FFFFFF" />
+            android:layout_marginBottom="12dp"
+            android:text="Kamera"
+            android:textColor="#FFFFFF"
+            android:textSize="11sp" />
+
+        <Button
+            android:id="@+id/toolsButton"
+            android:layout_width="62dp"
+            android:layout_height="62dp"
+            android:background="@drawable/round_action_button"
+            android:contentDescription="Creator Werkzeuge"
+            android:text="✦"
+            android:textColor="#FFFFFF"
+            android:textSize="24sp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp"
+            android:text="Effekte"
+            android:textColor="#FFFFFF"
+            android:textSize="11sp" />
+
+        <Button
+            android:id="@+id/voiceButton"
+            android:layout_width="62dp"
+            android:layout_height="62dp"
+            android:background="@drawable/round_action_button"
+            android:contentDescription="Voice Studio"
+            android:text="♫"
+            android:textColor="#FFFFFF"
+            android:textSize="23sp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp"
+            android:text="Stimme"
+            android:textColor="#FFFFFF"
+            android:textSize="11sp" />
+
+        <Button
+            android:id="@+id/accountButton"
+            android:layout_width="62dp"
+            android:layout_height="62dp"
+            android:background="@drawable/round_action_button"
+            android:contentDescription="TikTok Konto"
+            android:text="◎"
+            android:textColor="#FFFFFF"
+            android:textSize="25sp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp"
+            android:text="TikTok"
+            android:textColor="#FFFFFF"
+            android:textSize="11sp" />
+
+        <Button
+            android:id="@+id/settingsButton"
+            android:layout_width="62dp"
+            android:layout_height="62dp"
+            android:background="@drawable/round_action_button"
+            android:contentDescription="Einstellungen"
+            android:text="⚙"
+            android:textColor="#FFFFFF"
+            android:textSize="23sp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Setup"
+            android:textColor="#FFFFFF"
+            android:textSize="11sp" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/bottomPanel"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:layout_marginStart="12dp"
+        android:layout_marginEnd="12dp"
+        android:layout_marginBottom="10dp"
+        android:background="@drawable/glass_panel"
+        android:orientation="vertical"
+        android:padding="14dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/durationText"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="00:00:00"
+                android:textColor="#FFFFFF"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/resolutionText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="@drawable/glass_chip"
+                android:paddingStart="9dp"
+                android:paddingTop="5dp"
+                android:paddingEnd="9dp"
+                android:paddingBottom="5dp"
+                android:text="720p · 30 FPS"
+                android:textColor="#FFFFFF"
+                android:textSize="12sp" />
+
+            <TextView
+                android:id="@+id/bitrateText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:background="@drawable/glass_chip"
+                android:paddingStart="9dp"
+                android:paddingTop="5dp"
+                android:paddingEnd="9dp"
+                android:paddingBottom="5dp"
+                android:text="0 kbit/s"
+                android:textColor="#FFFFFF"
+                android:textSize="12sp" />
+        </LinearLayout>
+
+        <Spinner
+            android:id="@+id/sourceSpinner"
+            android:layout_width="match_parent"
+            android:layout_height="42dp"
+            android:layout_marginTop="8dp"
+            android:background="@drawable/spinner_glass"
+            android:paddingStart="10dp"
+            android:paddingEnd="10dp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <Switch
+                android:id="@+id/micSwitch"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:checked="true"
+                android:text="Mikrofon"
+                android:textColor="#FFFFFF" />
+
+            <ProgressBar
+                android:id="@+id/audioMeter"
+                style="?android:attr/progressBarStyleHorizontal"
+                android:layout_width="0dp"
+                android:layout_height="8dp"
+                android:layout_marginStart="10dp"
+                android:layout_weight="1"
+                android:max="100"
+                android:progress="65"
+                android:progressTint="#22D3EE" />
+        </LinearLayout>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Mikrofonpegel"
+            android:textColor="#CBD5E1"
+            android:textSize="11sp" />
 
         <SeekBar
             android:id="@+id/micVolume"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
+            android:layout_height="32dp"
             android:max="200"
-            android:progress="100" />
+            android:progress="100"
+            android:progressTint="#A855F7"
+            android:thumbTint="#22D3EE" />
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Geräte-/Spielton"
-            android:textColor="#FFFFFF" />
+            android:textColor="#CBD5E1"
+            android:textSize="11sp" />
 
         <SeekBar
             android:id="@+id/deviceVolume"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
+            android:layout_height="32dp"
             android:max="100"
-            android:progress="100" />
+            android:progress="100"
+            android:progressTint="#22D3EE"
+            android:thumbTint="#A855F7" />
 
-        <Button
-            android:id="@+id/chatButton"
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="10dp"
-            android:text="TikFinity Chat und Vorlesen" />
+            android:layout_marginTop="8dp"
+            android:orientation="horizontal">
 
-        <Button
-            android:id="@+id/settingsButton"
+            <Button
+                android:id="@+id/startButton"
+                android:layout_width="0dp"
+                android:layout_height="56dp"
+                android:layout_weight="1.5"
+                android:background="@drawable/live_button"
+                android:text="●  LIVE STARTEN"
+                android:textColor="#FFFFFF"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+
+            <Button
+                android:id="@+id/recordButton"
+                android:layout_width="0dp"
+                android:layout_height="56dp"
+                android:layout_marginStart="8dp"
+                android:layout_weight="1"
+                android:background="@drawable/secondary_button"
+                android:text="REC"
+                android:textColor="#FFFFFF"
+                android:textSize="15sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/networkText"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Stream, USB, Overlay und Gäste einstellen" />
+            android:layout_marginTop="6dp"
+            android:gravity="center"
+            android:text="Netzwerk wird geprüft"
+            android:textColor="#CBD5E1"
+            android:textSize="11sp" />
     </LinearLayout>
-</ScrollView>
+</FrameLayout>

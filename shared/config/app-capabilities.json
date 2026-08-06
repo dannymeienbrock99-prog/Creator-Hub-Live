@@ -1,0 +1,21 @@
+{
+  "appName": "Creator Hub Live",
+  "version": "1.3.0",
+  "platforms": ["android", "ios"],
+  "features": {
+    "cameraStreaming": true,
+    "sensorRotation": true,
+    "tikfinityChat": true,
+    "textToSpeech": true,
+    "overlayConfiguration": true,
+    "guestLayout": true,
+    "usbCapture": "android-prepared",
+    "screenCapture": "android-prepared",
+    "giftAnimations": "web-overlay"
+  },
+  "notes": {
+    "androidPackage": "de.creatorhub.live",
+    "iosBundleId": "de.creatorhub.live.ios",
+    "sharedInstallFile": false
+  }
+}

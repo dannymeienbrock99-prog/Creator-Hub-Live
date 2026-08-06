@@ -8,18 +8,24 @@ on:
       - "builds/**"
   pull_request:
     branches: ["main"]
+  workflow_run:
+    workflows: ["Android APK Build"]
+    types: [completed]
 
 permissions:
   contents: read
 
 jobs:
   build-windows:
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: windows-2022
     timeout-minutes: 30
 
     steps:
-      - name: Checkout
+      - name: Checkout current Android main
         uses: actions/checkout@v4
+        with:
+          ref: main
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
